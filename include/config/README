@@ -1,0 +1,5 @@
+The intention is not that you modify any headers in this directory, but rather
+that you create a 'config' dir with custom headers in a place that's searched
+before this one is.
+
+The config files in this dir just contain defaults and comments.
