@@ -5,7 +5,9 @@
 
 // Control Module
 
-extern struct Ctrl &ctrl;  // 0x44e10000 (== l4wk + 0x2'10'000)
+struct Ctrl;
+
+extern Phys< Ctrl > ctrl;  // 0x44e10000 (== l4wk + 0x2'10'000)
 
 
 struct Pad {
@@ -81,7 +83,7 @@ alignas(0x40)
 	// bits  6- 7	rw  sysboot 6-7: ethernet: 0=mii, 1=rmii, 2=rgmii
 	//
 /*041*/	u8  device_type;
-	// bits  0- 2	r-  device type:  3=GP
+	// bits  0- 2	r-  device type:  0=Test, 1=EMU, 2=HS, 3=GP
 	//
 /*042*/	u8  sysboot_hi;
 	// bit   0	rw  sysboot 8:     xip/nand 16-bit

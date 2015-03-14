@@ -12,7 +12,7 @@ CXXFLAGS += -Og
 CXXFLAGS += -Wall -Wextra
 #CXXFLAGS += -Werror
 CXXFLAGS += -Wno-unused-parameter -Wno-error=unused-function
-CPPFLAGS = -I include
+CPPFLAGS = -I . -I include
 
 CXX += -fmax-errors=3
 

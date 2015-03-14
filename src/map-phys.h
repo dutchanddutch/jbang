@@ -13,3 +13,14 @@ let static map_phys( pa_t pa ) -> T &
 {
 	return *(T *) map_phys( pa, sizeof(T) );
 }
+
+struct PhysInitializer {
+	pa_t pa;
+
+	template< typename T >
+	operator T & () const {  return map_phys<T>( pa );  }
+};
+
+let constexpr operator ""_pa( unsigned long long pa ) {
+	return PhysInitializer { (pa_t)pa };
+}

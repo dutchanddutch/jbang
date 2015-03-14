@@ -1,3 +1,4 @@
+#pragma once
 #include "defs.h"
 
 struct alignas(4) Bandgap {

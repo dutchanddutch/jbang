@@ -3,7 +3,9 @@
 #include "util/device.h"
 #include "ti/irqd.h"
 
-extern struct Prcm &prcm;  // 0x44e'00'000 (== l4wk + 0x2'00'000)
+struct Prcm;
+
+extern Phys< Prcm > prcm;  // 0x44e'00'000 (== l4wk + 0x2'00'000)
 
 
 // Subarctic has simplified OMAP4/5 PRCM, but violates the standard register

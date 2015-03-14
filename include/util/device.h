@@ -1,5 +1,6 @@
 #pragma once
 #include "defs.h"
+#include "config/device.h"
 
 
 //============== Here be dragons =============================================//
@@ -32,6 +33,10 @@
 // Note that I use these only when reads have side-effects or when writes have
 // side-effects that cannot be explained as being the result of changing the
 // register's value.  Otherwise, a limited barrier probably suffices.
+
+using io_u64 = u64 volatile;
+using in_u64 = u64 volatile;
+using wo_u64 = u64 volatile;
 
 using io_s32 = s32 volatile;
 using in_s32 = s32 volatile;

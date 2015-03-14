@@ -89,7 +89,31 @@ alignas(0x10)
 /*184*/	wo_u32 _old_wake_enable;	//-s
 
 alignas(0x10)
-/*190*/	wo_u32 clear;	//-c
-/*194*/	wo_u32 set;	//-s
+/*190*/	wo_u32 _clear;	//-c
+/*194*/	wo_u32 _set;	//-s
 
+	let set( u32 pins, bool value = true ) -> Io & {
+		dev_send( value ? _set : _clear, pins );
+		barrier( out );
+		return self;
+	}
+
+	let clear( u32 pins ) -> Io & {
+		return set( pins, false );
+	}
+
+	let highz( u32 pins ) -> Io & {
+		dir |= pins;
+		return self;
+	}
+
+	let drive( u32 pins ) -> Io & {
+		write_barrier( out );
+		dir &= ~pins;
+		return self;
+	}
+
+	let drive( u32 pins, bool value ) -> Io & {
+		return set( pins, value ).drive( pins );
+	}
 };

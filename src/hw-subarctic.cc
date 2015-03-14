@@ -14,9 +14,9 @@
 // ctrl, for padconf, where the real work is done.
 // gpio for reading back TDO
 
-Prcm &prcm = map_phys<Prcm>( 0x44e'00'000 );
-Ctrl &ctrl = map_phys<Ctrl>( 0x44e'10'000 );
-Io   &io3  = map_phys<Io>  ( 0x481'ae'000 );
+Phys< Prcm > prcm = 0x44e'00'000_pa;
+Phys< Ctrl > ctrl = 0x44e'10'000_pa;
+Phys< Io >   io3  = 0x481'ae'000_pa;
 
 template< typename ...Args >
 let static padconf( uint pin, Args ...args )

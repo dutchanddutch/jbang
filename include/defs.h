@@ -47,6 +47,10 @@ using namespace std;
 // Also, can't use the new attribute syntax [[ gnu::aligned( x ) ]] here.
 // It breaks in gcc when alignment > 64 bytes, wtf...
 
+#define packed_alignas( x ) __attribute__(( packed, aligned( x ) ))
+//
+// Same story, and can't combine C++-style and GCC-style attributes.
+
 
 #define ELF_IMPORTED	__attribute__((visibility( "default" )))
 #define ELF_EXPORTED	__attribute__((visibility( "protected" )))
@@ -93,6 +97,23 @@ using uint = unsigned;
 // used for opaque data
 
 enum class byte : u8;
+
+
+//============== Euclidean remainder =========================================//
+//
+// i.e. mod( -1, 10 ) == 9
+
+let inline mod( uint n, uint d ) -> uint
+{
+	return n % d;
+}
+
+let inline mod( int n, uint d ) -> uint
+{
+	if( n >= 0 )
+		return (uint)n % d;
+	return d + ~( ~(uint)n % d );
+}
 
 
 //============== Bit-test queries ============================================//

@@ -1,7 +1,7 @@
 #pragma once
 #include "defs.h"
 
-// Standard irq distributors
+// Standard irq aggregators
 //	One or more level and/or edge-triggered sources.
 //	Level output.  Sometimes also pulse-output, in which case an `eoi'
 //	register will be nearby, normally immediately before or after it.
@@ -35,7 +35,7 @@ struct Irqdw : public Irqd<T> {
 };
 
 
-// extended omap4 version
+// highlander version
 
 template< typename T >
 struct Irqd4 {
@@ -57,7 +57,7 @@ struct Irqd4 {
 	TW disable;	//-c
 };
 
-// extended version with wakeup-enable
+// highlander version with wakeup-enable
 
 template< typename T >
 struct Irqd4w : public Irqd4<T> {
