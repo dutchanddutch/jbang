@@ -9,6 +9,10 @@ watchpoints and more generally enable "debug monitor" mode.  It would in
 principle also allow halting debug to be performed on the cortex-a8 with
 assistance of code running e.g. in PRUSS.
 
+(Note: it turns out the hardware breakpoint/watchpoint code in linux does not
+currently support the ARMv7 memory-mapped debug model used by the Cortex-A8.
+Bummer.)
+
 ## Hardware requirements
 
 All that is required is that all relevant JTAG inputs (nTRST, TMS, TDI, TCK)
