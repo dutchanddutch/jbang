@@ -6,6 +6,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
+// For completeness I defined some utility functions that are currently unused
+#pragma GCC diagnostic ignored "-Wunused-function"
+
+
 //-------------- JTAG protocol -----------------------------------------------//
 //
 // bit-banging JTAG via padconf is so slow that we really don't need to bother

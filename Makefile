@@ -1,13 +1,16 @@
 programs :=
 programs += jbang
 
-all :: ${programs}
+all :: libsubarctic/libsubarctic.a ${programs}
 
 clean ::
 	${RM} ${programs}
+	${MAKE} -C libsubarctic clean
 
+libsubarctic/libsubarctic.a:
+	${MAKE} -C libsubarctic
 
-jbang: jbang.cc hw-subarctic.cc map-phys.cc
+jbang: jbang.cc hw-subarctic.cc
 
 
 # where to look for sources
@@ -23,4 +26,5 @@ pkgs =
 
 include common.mk
 
-CXXFLAGS += -fno-exceptions -fno-rtti -fno-threadsafe-statics
+LDFLAGS += -L libsubarctic
+LDLIBS += -lsubarctic

@@ -5,8 +5,8 @@
 
 struct alignas(0x400) Io {
 
-//===== new OCP wrapper =====//
-//
+	//-------- Highlander-compliant wrapper ------------------------------//
+
 /*000*/	u32 ident;	//r-  5'060'08'01
 
 alignas(0x10)
@@ -49,7 +49,7 @@ alignas(0x20)
 	// AM335x TRM mentions writing 0 to eoi is required after DMA event.
 
 
-//===== wrapped peripheral =====//
+	//-------- original module -------------------------------------------//
 
 alignas(0x100)
 /*100*/	u32 _old_ident;
@@ -67,9 +67,9 @@ alignas(0x10)
 	// bit   0	rw  functional clock gated
 	// bits  1- 2	rw  log2( ick -> fck divider )
 
-/*134*/	u32 dir;	//rw  0=output, 1=input
+/*134*/	u32 _highz;	//rw  0=driver enabled, 1=driver disabled
 /*138*/	u32 in;		//r-  received level
-/*13c*/	u32 out;	//rw  driven level (if output)
+/*13c*/	u32 _out;	//rw  driven level (if output)
 /*140*/	u32 irq_low;	//rw  detect low level
 /*144*/	u32 irq_high;	//rw  detect high level
 /*148*/	u32 irq_rise;	//rw  detect rising edge
@@ -88,32 +88,73 @@ alignas(0x10)
 /*180*/	wo_u32 _old_wake_disable;	//-c
 /*184*/	wo_u32 _old_wake_enable;	//-s
 
+  union {
 alignas(0x10)
-/*190*/	wo_u32 _clear;	//-c
-/*194*/	wo_u32 _set;	//-s
+/*190*/	wo_u64 _setclear;	//-x
+    struct {
+/*190*/	wo_u32 _clear;		//-c
+/*194*/	wo_u32 _set;		//-s
+    };
+  };
 
-	let set( u32 pins, bool value = true ) -> Io & {
-		dev_send( value ? _set : _clear, pins );
-		barrier( out );
+	// Output value/driver getters
+	//
+	let out() -> u32 {  return _out;  }
+	let highz() -> u32 {  return _highz;  }
+
+	// Output value setters
+	//
+	// These use atomic ops in the GPIO module to change the output value,
+	// making them race-free even across different initiators.
+	//
+	// It also makes them fast by avoiding a device-read.
+	//
+	// XXX I'm not 100% sure setclear will be race-free against other
+	// initiators, although it will be locally.
+	//
+	let setclear( u32 setbits, u32 clearbits ) -> Io & {
+		write_barrier( _highz, _out );
+		if( __builtin_constant_p( clearbits == 0 ) && clearbits == 0 )
+			_set( setbits );
+		else if( __builtin_constant_p( setbits == 0 ) && setbits == 0 )
+			_clear( clearbits );
+		else
+			_setclear( clearbits | (u64) setbits << 32 );
+		barrier( _out );
 		return self;
 	}
-
-	let clear( u32 pins ) -> Io & {
-		return set( pins, false );
+	let set( u32 bits ) -> Io & {
+		return setclear( bits, 0 );
+	}
+	let clear( u32 bits ) -> Io & {
+		return setclear( 0, bits );
+	}
+	let out( u32 bits, bool value ) -> Io & {
+		return value ? set( bits ) : clear( bits );
+	}
+	let out( u32 bits, u32 value ) -> Io & {
+		return setclear( value & bits, ~value & bits );
 	}
 
-	let highz( u32 pins ) -> Io & {
-		dir |= pins;
+	// Output driver setters
+	//
+	// These require read-modify-update and are therefore NOT atomic.
+	//
+	// Use of atomic ops to provide cpu-local safety doesn't work either:
+	// the exclusive load is exported to the interconnect and results in
+	// a bus error.
+	//
+	let highz( u32 bits ) -> Io & {
+		_highz |= bits;
 		return self;
 	}
-
-	let drive( u32 pins ) -> Io & {
-		write_barrier( out );
-		dir &= ~pins;
+	let drive( u32 bits ) -> Io & {
+		write_barrier( _out );
+		_highz &= ~bits;
 		return self;
 	}
-
-	let drive( u32 pins, bool value ) -> Io & {
-		return set( pins, value ).drive( pins );
+	template< typename T >
+	let drive( u32 bits, T value ) -> Io & {
+		return out( bits, value ).drive( bits );
 	}
 };

@@ -4,6 +4,10 @@
 #include <cstddef>
 #include <cstdint>
 
+// Remove pollution that compiler or standard headers may have introduced.
+#undef linux		// __linux__
+#undef unix		// __unix__
+
 using namespace std;
 
 
@@ -60,7 +64,9 @@ using namespace std;
 // way to get both gcc and clang to accept it on a namespace otherwise:  clang
 // only accepts it standalone in the namespace, e.g.
 //	namespace foo {
-//	[[ gnu::visibility( "default" ) ]]
+//		[[ gnu::visibility( "default" ) ]];
+//		...
+//	}
 // while gcc rejects this (but accepts it between foo and the '{')
 
 
@@ -75,40 +81,45 @@ using namespace std;
 // seem to be the case.  In particular, forseq( i, 0, n ) with n is an unsigned
 // int (or bigger) makes i the same type, while 0 always becomes a signed int
 // with regard to overload resolution, so the Seq class would have no choice
-// but to use a signed integer type of a bigger size (if any if available).
+// but to use a signed integer type of a bigger size (if any is available).
 
 
-//============== Types =======================================================//
+//============== Integer types ===============================================//
+//
+// For some annoying reason, int32_t is long instead of int.
 
-// integer types
+using uint = unsigned;
 
 using u64 = uint64_t;
-using u32 = uint32_t;
+using u32 = uint;
 using u16 = uint16_t;
 using u8  = uint8_t;
 
 using s64 = int64_t;
-using s32 = int32_t;
+using s32 = int;
 using s16 = int16_t;
 using s8  = int8_t;
 
-using uint = unsigned;
 
-// used for opaque data
+//============== min/max that actually do what you want ======================//
 
-enum class byte : u8;
+template< typename L, typename R >
+let constexpr min( L a, R b ) {  return a < b ? a : b;  }
+
+template< typename L, typename R >
+let constexpr max( L a, R b ) {  return a < b ? b : a;  }
 
 
 //============== Euclidean remainder =========================================//
 //
 // i.e. mod( -1, 10 ) == 9
 
-let inline mod( uint n, uint d ) -> uint
+let inline constexpr mod( uint n, uint d ) -> uint
 {
 	return n % d;
 }
 
-let inline mod( int n, uint d ) -> uint
+let inline constexpr mod( int n, uint d ) -> uint
 {
 	if( n >= 0 )
 		return (uint)n % d;
@@ -125,7 +136,7 @@ let inline mod( int n, uint d ) -> uint
 // Left-hand side is also allowed to be a pointer.
 
 template< typename Val, typename Mask >
-let inline any_set( Val val, Mask bits ) -> bool
+let inline constexpr any_set( Val val, Mask bits ) -> bool
 {
 	using IVal = conditional_t< is_pointer<Val>{}, uintptr_t, Val >;
 	let ival = (IVal) val;
@@ -135,7 +146,7 @@ let inline any_set( Val val, Mask bits ) -> bool
 }
 
 template< typename Val, typename Mask >
-let inline any_clear( Val val, Mask bits ) -> bool
+let inline constexpr any_clear( Val val, Mask bits ) -> bool
 {
 	// An alternative to the extra test is first converting both operands
 	// to their common type, but they might not have one.
@@ -143,13 +154,13 @@ let inline any_clear( Val val, Mask bits ) -> bool
 }
 
 template< typename Val, typename Mask >
-let inline all_set( Val val, Mask bits ) -> bool
+let inline constexpr all_set( Val val, Mask bits ) -> bool
 {
 	return ! any_clear( val, bits );
 }
 
 template< typename Val, typename Mask >
-let inline all_clear( Val val, Mask bits ) -> bool
+let inline constexpr all_clear( Val val, Mask bits ) -> bool
 {
 	return ! any_set( val, bits );
 }

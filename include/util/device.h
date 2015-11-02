@@ -1,6 +1,5 @@
 #pragma once
 #include "defs.h"
-#include "config/device.h"
 
 
 //============== Here be dragons =============================================//
@@ -18,41 +17,6 @@
 //	wait_while( dev.reset );
 //
 // work without requiring dev.reset to be made volatile.
-
-
-//============== Types =======================================================//
-//
-// memory-mapped I/O types
-//
-// "in_" and "wo_" indicate read-only and write-only registers.  I used to
-// declare the read-only registers as const volatile but that sometimes
-// triggered weird compiler errors.
-//
-// I really wish I could better express this to the compiler.
-//
-// Note that I use these only when reads have side-effects or when writes have
-// side-effects that cannot be explained as being the result of changing the
-// register's value.  Otherwise, a limited barrier probably suffices.
-
-using io_u64 = u64 volatile;
-using in_u64 = u64 volatile;
-using wo_u64 = u64 volatile;
-
-using io_s32 = s32 volatile;
-using in_s32 = s32 volatile;
-using wo_s32 = s32 volatile;
-
-using io_u32 = u32 volatile;
-using in_u32 = u32 volatile;
-using wo_u32 = u32 volatile;
-
-using io_u16 = u16 volatile;
-using in_u16 = u16 volatile;
-using wo_u16 = u16 volatile;
-
-using io_u8  = u8  volatile;
-using in_u8  = u8  volatile;
-using wo_u8  = u8  volatile;
 
 
 //============== Barriers ====================================================//
@@ -73,14 +37,14 @@ using wo_u8  = u8  volatile;
 //
 
 // full compiler barrier
-[[ gnu::always_inline, gnu::artificial ]]
+[[ gnu::always_inline ]]
 let inline barrier()
 {
 	asm volatile ( "" ::: "memory" );
 }
 
 // full memory barrier
-[[ gnu::always_inline, gnu::artificial ]]
+[[ gnu::always_inline ]]
 let inline barrier_sync()
 {
 	asm volatile ( "dsb" ::: "memory" );
@@ -88,21 +52,40 @@ let inline barrier_sync()
 
 // full compiler barrier, limited to specified object
 template< typename T >
-[[ gnu::always_inline, gnu::artificial ]]
+[[ gnu::always_inline ]]
 let inline barrier( T &target )
 {
 	asm volatile ( "" : "+m"(target) );
 }
 
+// full compiler barrier, limited to specified objects
+template< typename T, typename ...Ts >
+[[ gnu::always_inline ]]
+let inline barrier( T const &target, Ts const &...targets )
+{
+	barrier( target );
+	barrier( targets... );
+}
+
 // compiler write barrier, limited to specified object
 template< typename T >
-[[ gnu::always_inline, gnu::artificial ]]
+[[ gnu::always_inline ]]
 let inline write_barrier( T const &target )
 {
 	asm volatile ( "" :: "m"(target) );
 }
 
+// compiler write barrier, limited to specified objects
+template< typename T, typename ...Ts >
+[[ gnu::always_inline ]]
+let inline write_barrier( T const &target, Ts const &...targets )
+{
+	write_barrier( target );
+	write_barrier( targets... );
+}
+
 // send a value to a write-only register
+// XXX deprecated
 template< typename T >
 let inline dev_send( T volatile &reg, T val ) {
 	reg = val;
@@ -110,6 +93,7 @@ let inline dev_send( T volatile &reg, T val ) {
 }
 
 // read a value from a read-only register
+// XXX deprecated
 template< typename T >
 let inline dev_recv( T volatile &reg ) -> T {
 	let tmp = reg;
@@ -119,7 +103,7 @@ let inline dev_recv( T volatile &reg ) -> T {
 
 // render a pointer value opaque to the optimizer
 template< typename T >
-[[ gnu::always_inline, gnu::artificial, gnu::const ]]
+[[ gnu::always_inline, gnu::const ]]
 let inline conceal( T *p ) -> T *
 {
 	asm( "" : "+r"(p) );
@@ -128,8 +112,86 @@ let inline conceal( T *p ) -> T *
 
 // render a reference value opaque to the optimizer
 template< typename T >
-[[ gnu::always_inline, gnu::artificial, gnu::const ]]
+[[ gnu::always_inline, gnu::const ]]
 let inline conceal( T &m ) -> T &
 {
 	return *conceal( &m );
 }
+
+
+//============== Types =======================================================//
+//
+// memory-mapped I/O types
+//
+// "in_" and "wo_" indicate read-only and write-only registers.  I used to
+// declare the read-only registers as const volatile but that sometimes
+// triggered weird compiler errors.
+//
+// Note that I use these only when reads have side-effects or when writes have
+// side-effects that cannot be explained as being the result of changing the
+// register's value.  Otherwise, a limited barrier probably suffices.
+
+template< typename T = u32 >
+struct InReg {
+	static_assert( is_integral<T>{}, "" );
+
+	T volatile reg;
+
+	let operator () () -> T {  return reg;  }
+};
+
+template< typename T = u32 >
+struct OutReg {
+	static_assert( is_integral<T>{}, "" );
+
+	T volatile reg;
+
+	let operator () ( T val ) -> void {  reg = val;  }
+};
+
+
+using io_u64 = u64 volatile;
+using in_u64 = InReg<u64>;
+using wo_u64 = OutReg<u64>;
+
+using io_s32 = s32 volatile;
+using in_s32 = InReg<s32>;
+using wo_s32 = OutReg<s32>;
+
+using io_u32 = u32 volatile;
+using in_u32 = InReg<u32>;
+using wo_u32 = OutReg<u32>;
+
+using io_u16 = u16 volatile;
+using in_u16 = InReg<u16>;
+using wo_u16 = OutReg<u16>;
+
+using io_u8  = u8  volatile;
+using in_u8  = InReg<u8>;
+using wo_u8  = OutReg<u8>;
+
+
+
+//============== Common register groups ======================================//
+//
+template< typename T = u32 >
+struct EvReg {
+	static_assert( is_unsigned_integral<T>{}, "" );
+
+	// contains events: set by hardware, cleared by writing 1
+  union {
+/*00*/	OutReg<T> _clear;
+/*00*/	T const pending;
+  };
+	let clear( T bits ) & -> void {
+		barrier( pending );  // prevent earlier reads moving down
+		_clear( bits );
+		barrier( pending );  // prevent later reads before up
+	}
+
+	let take( T bits = ~T{0} ) & -> T {
+		bits &= pending;
+		clear( bits );
+		return bits;
+	}
+};

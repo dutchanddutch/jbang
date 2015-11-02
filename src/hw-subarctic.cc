@@ -1,28 +1,20 @@
 #include "defs.h"
 #include "hw-subarctic.h"
-#include "map-phys.h"
-#include "kmemcpy.h"
+#include "privileged.h"
 #include "ti/subarctic/prcm.h"
 #include "ti/subarctic/ctrl.h"
 #include "ti/subarctic/gpio.h"
 
 
-//-------------- Memory-mapped peripherals -----------------------------------//
+//-------------- Pad configuration helper ------------------------------------//
 //
-// prcm, to manually enable clocks (this is very wrong and rude but it'll
-//		do for this proof-of-concept).
-// ctrl, for padconf, where the real work is done.
-// gpio for reading back TDO
-
-Phys< Prcm > prcm = 0x44e'00'000_pa;
-Phys< Ctrl > ctrl = 0x44e'10'000_pa;
-Phys< Io >   io3  = 0x481'ae'000_pa;
+// Uses privileged assignment to perform pad configuration, since the control
+// module (on centaurus/subarctic/aegis) ignores unprivileged writes.
 
 template< typename ...Args >
 let static padconf( uint pin, Args ...args )
 {
-	// have kernel perform a privileged write for us
-	kassign( ctrl.pad[ pin ], Pad { args... } );
+	privileged( ctrl.pad[ pin ] ) = Pad { args... };
 }
 
 

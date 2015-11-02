@@ -1,20 +1,31 @@
 ################ common flags and rules ########################################
 
+.DELETE_ON_ERROR:
+
 SHELL := /bin/bash
 
 CXX = ${CROSS_COMPILE}g++
-CXX += -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mthumb
+CC = ${CROSS_COMPILE}gcc
+LD = ${CXX}
 LDFLAGS =
 LDLIBS =
-CXXFLAGS = -std=gnu++1y -funsigned-char
-CXXFLAGS += -fno-strict-aliasing -fwrapv
-CXXFLAGS += -Og
-CXXFLAGS += -Wall -Wextra
-#CXXFLAGS += -Werror
-CXXFLAGS += -Wno-unused-parameter -Wno-error=unused-function
+flags = -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mthumb
+CC = ${CROSS_COMPILE}gcc
+CFLAGS = ${flags}
+CXXFLAGS = ${flags}
 CPPFLAGS = -I . -I include
+flags += -funsigned-char
+flags += -fno-strict-aliasing -fwrapv
+CXXFLAGS += -std=gnu++1y
+CXXFLAGS += -fno-operator-names
+CXXFLAGS += -Wno-invalid-offsetof
+flags += -Og -g
+flags += -Wall -Wextra
+flags += -Werror
+flags += -Wno-unused-parameter -Wno-error=unused-function
+flags += -ffunction-sections -fdata-sections
 
-CXX += -fmax-errors=3
+flags += -fmax-errors=3
 
 export GCC_COLORS = 1
 
@@ -44,7 +55,7 @@ $(shell mkdir -p ${depdir})
 CPPFLAGS += -MMD -MQ $@ -MP -MF >( cat >${depdir}/$@.d )
 
 # use them
--include .dep/*.d
+-include ${depdir}/*.d
 
 # clean them up
 clean ::
@@ -59,3 +70,25 @@ clean ::
 
 %: %.cc
 	${LINK.cc} ${^:%.h=} ${LDLIBS} ${OUTPUT_OPTION}
+
+
+################ to check what the compiler is making of your code #############
+
+ifdef use_clang
+
+%.asm: %.c
+	$(COMPILE.c) -S -Xclang -masm-verbose $(OUTPUT_OPTION) $<
+%.asm: %.cc
+	$(COMPILE.cc) -S -Xclang -masm-verbose $(OUTPUT_OPTION) $<
+
+else
+
+%.asm: %.c
+	$(COMPILE.c) -S -g0 -fverbose-asm $(OUTPUT_OPTION) $<
+%.asm: %.cc
+	$(COMPILE.cc) -S -g0 -fverbose-asm $(OUTPUT_OPTION) $<
+
+endif
+
+clean ::
+	${RM} *.asm

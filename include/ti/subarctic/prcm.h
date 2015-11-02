@@ -2,10 +2,13 @@
 #include "defs.h"
 #include "util/device.h"
 #include "ti/irqd.h"
+#include "ti/subarctic/pll.h"
 
 struct Prcm;
 
-extern Phys< Prcm > prcm;  // 0x44e'00'000 (== l4wk + 0x2'00'000)
+inline namespace hw {
+	extern Prcm prcm;  // 0x44e'00'000 (== l4wk + 0x2'00'000)
+}
 
 
 // Subarctic has simplified OMAP4/5 PRCM, but violates the standard register
@@ -154,7 +157,7 @@ struct Prcm {
 	// bit   6	cpts_rft_gclk
 	// bit   7	mcasp_gclk
 
-/*010*/	IMod mod_pcie;
+/*010*/	IMod mod_pcie;		// ?
 /*014*/	IMod mod_eth;		// clk_eth
 /*018*/	IMod mod_lcdc;		// clk_lcdc
 /*01c*/	IMod mod_usb;		// clk_l3s.l3s_gclk (also per_dcoldo for phys)
@@ -171,8 +174,8 @@ struct Prcm {
 /*048*/	Mod mod_i2c1;
 /*04c*/	Mod mod_spi0;
 /*050*/	Mod mod_spi1;
-/*054*/	Mod mod_spi2;
-/*058*/	Mod mod_spi3;
+/*054*/	Mod mod_spi2;		// ?
+/*058*/	Mod mod_spi3;		// ?
 /*05c*/	u32 _05c;
 /*060*/	Mod mod_l4ls;
 /*064*/	Mod mod_l4fw;
@@ -188,7 +191,7 @@ struct Prcm {
 /*08c*/	Mod mod_asp2;		// ?
 /*090*/	Mod mod_rng;		// clk_l4ls
 /*094*/	Mod mod_aes0;
-/*098*/	Mod mod_aes1;
+/*098*/	Mod mod_aes1;		// ?
 /*09c*/	Mod mod_des;		// ?
 /*0a0*/	Mod mod_hash;
 /*0a4*/	Mod mod_pka;
@@ -344,99 +347,38 @@ alignas(0x400)
 	//		 96 MHz	m2/2 -> mmc
 	//		 48 MHz	m2/4 -> uarts
 
-	struct alignas(4) PllCommon {
-		u32 autoidle;	//rw
-		bool locked;	//r-
-		bool mn_bypass;	//r-
-
-		u32 ssc_deltam;	//rw  20-bit fractional Δmultiplier per refclk
-
-		// modulation period in refclks
-		u8 ssc_modpman;	//rw  mantissa, range 1..255
-		u8 ssc_modpexp;	//rw  exponent, range 0..7
-		let ssc_modperiod() -> uint {
-			return (uint) ssc_modpman << ( ssc_modpexp + 2 );
-		}
-		// For given modperiod, representation with minimal exponent
-		// is preferred (i.e. ssc_modpexp == 0 || ssc_modpman >= 0x80).
-	};
-	static_assert( sizeof( PllCommon ) == 16, "" );
-
-	struct alignas(4) PllConfig {
-		uint predivider	:  8;  // off by one, 7-bit for DPLLS
-		uint multiplier	: 12;  // 11-bit for DPLLS
-		uint		:  3;
-		bool alt_bypass	:  1;  // mpu, ddr, disp
-		uint sd_divider	:  8;  // DPLLLJ, set to ceil( dco / 250 MHz )
-	};
-
-	struct alignas(4) PllControl {
-		uint mode	:  3;
-		//	0  -
-		//	1  low-power stop (DPLLLJ only)
-		//	2  -
-		//	3  -
-		//	4  MN-bypass
-		//	5  low-power idle bypass
-		//	6  fast-relock idle bypass (DPLLS only)
-		//	7  lock
-
-		// DPLLS only {
-		uint ramp_type	: 2;  //rw
-		uint ramp_rate	: 3;  //rw
-		bool auto_recal	: 1;  //rw
-		bool relock_ramp: 1;  //rw
-		bool low_power	: 1;  //rw
-		bool regm4x_en	: 1;  //z-
-		// }
-		bool ssc_en	: 1;  //rw
-		bool ssc_ack	: 1;  //r-
-		bool ssc_down	: 1;  //rw  downspread
-		uint ssc_type	: 1;  //rw  must be zero
-	};
-
-	struct alignas(4) PllOutBase {
-		u8 _div;
-		bool force	: 1;  //rw
-		bool gated	: 1;  //r-
-		uint		: 2;
-		bool auto_pwrdn	: 1;  //rw  HSD and DCOLDO only
-	};
-
-	template< uint w >
-	struct PllOut : public PllOutBase {
-		let static constexpr postdiv_mask = ( 1u << w ) - 1;
-
-		let postdiv() const { return w ? ( _div & postdiv_mask ) : 1; }
-		let postdiv_ack() const { return any_set( _div, 1u << w ); }
-	};
-
-	using PllOutDCO	= PllOut<0>;
-	using PllOutS	= PllOut<5>;
-	using PllOutLJ	= PllOut<7>;
-
-/*41c*/	PllCommon pll_mpu;
-/*42c*/	PllConfig pll_mpu_config;
-/*430*/	PllCommon pll_ddr;
-/*440*/	PllConfig pll_ddr_config;
-/*444*/	PllCommon pll_disp;
-/*454*/	PllConfig pll_disp_config;
-/*458*/	PllCommon pll_core;
-/*468*/	PllConfig pll_core_config;
-/*46c*/	PllCommon pll_per;
-/*47c*/	PllOutDCO pll_per_out_dcoldo;
-/*480*/	PllOutS pll_core_out_m4;
-/*484*/	PllOutS pll_core_out_m5;
+/*41c*/	PllIdle    pll_mpu_idle;
+/*420*/	PllStatus  pll_mpu_status;
+/*424*/	PllSSC     pll_mpu_ssc;
+/*42c*/	PllCfgS    pll_mpu_config;
+/*430*/	PllIdle    pll_ddr_idle;
+/*434*/	PllStatus  pll_ddr_status;
+/*438*/	PllSSC     pll_ddr_ssc;
+/*440*/	PllCfgS    pll_ddr_config;
+/*444*/	PllIdle    pll_disp_idle;
+/*448*/	PllStatus  pll_disp_status;
+/*44c*/	PllSSC     pll_disp_ssc;
+/*454*/	PllCfgS    pll_disp_config;
+/*458*/	PllIdle    pll_core_idle;
+/*45c*/	PllStatus  pll_core_status;
+/*460*/	PllSSC     pll_core_ssc;
+/*468*/	PllCfgS    pll_core_config;
+/*46c*/	PllIdle    pll_per_idle;
+/*470*/	PllStatus  pll_per_status;
+/*474*/	PllSSC     pll_per_ssc;
+/*47c*/	PllOutDCO  pll_per_out_dco;
+/*480*/	PllOutHSD  pll_core_out_m4;
+/*484*/	PllOutHSD  pll_core_out_m5;
 /*488*/	PllControl pll_mpu_control;
 /*48c*/	PllControl pll_per_control;
 /*490*/	PllControl pll_core_control;
 /*494*/	PllControl pll_ddr_control;
 /*498*/	PllControl pll_disp_control;
-/*49c*/	PllConfig pll_per_config;
-/*4a0*/	PllOutS pll_ddr_out_m2;
-/*4a4*/	PllOutS pll_disp_out_m2;
-/*4a8*/	PllOutS pll_mpu_out_m2;
-/*4ac*/	PllOutLJ pll_per_out_m2;
+/*49c*/	PllCfgLJ   pll_per_config;
+/*4a0*/	PllOutS    pll_ddr_out_m2;
+/*4a4*/	PllOutS    pll_disp_out_m2;
+/*4a8*/	PllOutS    pll_mpu_out_m2;
+/*4ac*/	PllOutLJ   pll_per_out_m2;
 
 	//-------- Wakeup domain clock management (cont'd) -------------------//
 /*4b0*/	IModAE mod_cm3;		// clk_l4wkup_aon
@@ -455,7 +397,7 @@ alignas(0x400)
 /*4d4*/	Mod mod_wdog1;
 
 	//-------- PLL control registers (cont'd) ----------------------------//
-/*4d8*/	PllOutS pll_core_out_m6;
+/*4d8*/	PllOutHSD  pll_core_out_m6;
 
 
 alignas(0x100)
@@ -600,109 +542,119 @@ alignas(0x100)
 
 /*b04*/	Irqd<u32> mpu_irq;
 /*b0c*/	Irqd<u32> m3_irq0;
-	// bits  0- 7	-
-	// bit   8	domain transition completed
-	// bit   9	-
-	// bit  10	software wakeup
-	// bit  11	mpu pll recalibration required
-	// bit  12	core pll recalibration required
-	// bit  13	per pll recalibration required
-	// bit  14	ddr pll recalibration required
-	// bit  15	disp pll recalibration required
+	// bits  0- 7	z-
+	// bit   8	rc  software-requested domain transition completed
+	// bit   9	z-
+	// bit  10	rc  software-requested wakeup completed
+	// bit  11	rc  mpu pll recalibration required
+	// bit  12	rc  core pll recalibration required
+	// bit  13	rc  per pll recalibration required
+	// bit  14	rc  ddr pll recalibration required
+	// bit  15	rc  disp pll recalibration required
 
 	// m3_irq1 (always enabled) indicates MPU clock is gated, asserted when
 	// mod_mpu.mode() == sw_disable and mpu executes WFI instruction.
 
 
+
 alignas(0x100)
 	//-------- Peripheral domain power/reset management ------------------//
-/*c00*/	u32 per_rstctrl;
+
+/*c00*/	u32 per_reset_active;
 	// bit   0	rw  ? sw reset asserted
 	// bit   1	rw  pruss sw reset asserted
-/*c04*/	io_u32 per_rststat;
-	// bit   5	rc  ? sw reset occurred
-/*c08*/	u32 per_pwrstat;
+
+/*c04*/	EvReg<u32> per_reset_event;
+
+/*c08*/	u32 per_power_state;
 	// bits  0- 1	r-  power domain state
 	// bit   2	r-  logic state
-	// bits  3-16	z-
 	// bits 17-18	r-  "other memories" state
-	// bit  19	z-
 	// bit  20	r-  transition in progress
 	// bits 21-22	r-  ocmc memory state
 	// bits 23-24	r-  pruss memory state
-	// bits 25-31	z-
-/*c0c*/	u32 per_pwrctrl;
+
+/*c0c*/	u32 per_power_ctrl;
 	// bits  0- 1	rw  requested power domain state
-	// bit   2	z-
 	// bit   3	rw  logic retention-state
-	// bit   4	rw  request low power state change (auto-clears)
+	// bit   4	rx  request low power state change (auto-clears)
 	// bits  5-6	rw  pruss memory on-state
 	// bit   7	rw  pruss memory retention-state
-	// bits  8-24	z-
 	// bits 25-26	rw  "other memories" on-state
 	// bit  27	rw  ocmc memory retention-state
-	// bit  28	z-
 	// bit  29	rw  "other memories" retention-state
 	// bits 30-31	rw  ocmc memory on-state
 
 
 alignas(0x100)
 	//-------- Wakeup domain power/reset management ----------------------//
-/*d00*/	u32 wkup_rstctrl;
-	// bits  0- 2	z-
+
+/*d00*/	u32 wkup_reset_active;
 	// bit   3	rw  wakeup m3 sw reset asserted
-/*d04*/	u32 wkup_pwrctrl;
+
+/*d04*/	u32 wkup_power_ctrl;
 	// bit   3	rw  logic retention-state
-	// bit   4	rw  request low power state change (auto-clears)
-/*d08*/	u32 wkup_pwrstat;
+	// bit   4	rx  request low power state change (auto-clears)
+
+/*d08*/	u32 wkup_power_state;
 	// bit   2	r-  logic state
 	// bits 17-18	r-  debugss memory state
 	// bit  20	r-  transition in progress
-/*d0c*/	io_u32 wkup_rststat;
-	// bits  0- 4	z-
-	// bit   5	rc  wakeup m3 sw reset occurred
-	// bit   6	rc  wakeup m3 emu reset occurred
-	// bit   7	rc  wakeup m3 icc reset occurred
+
+/*d0c*/	EvReg<u32> wkup_reset_event;
+	// bit   5	rc  wakeup-m3 software reset occurred
+	// bit   6	rc  wakeup-m3 jtag/icepick reset occurred
+	// bit   7	rc  wakeup-m3 icecrusher reset occurred
 
 
 alignas(0x100)
 	//-------- MPU domain power/reset management -------------------------//
-/*e00*/	u32 mpu_pwrctrl;
+
+/*e00*/	u32 mpu_power_ctrl;
 	// bits  0- 1	rw  requested power domain state
 	// bit   2	rw  logic retention-state
-	// bit   3	z-
-	// bit   4	rw  request low power state change (auto-clears)
+	// bit   4	rx  request low power state change (auto-clears)
 	// bit  22	rw  l1 cache retention-state
 	// bit  23	rw  l2 cache retention-state
 	// bit  24	rw  ram retention-state
-/*e04*/	u32 mpu_pwrstat;
-/*e08*/	io_u32 mpu_rststat;
+
+/*e04*/	u32 mpu_power_state;
+	// bits  0- 1	r-  power domain state
+	// bit   2	r-  logic state
+	// bits  4- 5	r-  ram state
+	// bits  6- 7	r-  l1 cache state
+	// bits  8- 9	r-  l2 cache state
+	// bit  20	r-  transition in progress
+
+/*e08*/	EvReg<u32> mpu_reset_event;
+	// bit   5	rc  cortex-a8 jtag/icepick reset occurred
+	// bit   6	rc  cortex-a8 icecrusher reset occurred
 
 
 alignas(0x100)
 	//-------- Device power/reset management -----------------------------//
 
-/*f00*/	u32 dev_rstctrl;
-// bit   0	-x  software warm reset
-// bit   1	-x  software cold reset
+/*f00*/	OutReg<u32> dev_reset_cmd;
+	// bit   0	-x  software warm reset
+	// bit   1	-x  software cold reset
 
 /*f04*/	u8  global_rsttime;  //rw  u8  global reset cycles
 /*f05*/	u8  local_rsttime;   //rw  u5  local reset cycles
 
-/*f08*/	io_u32 dev_rststat;
-// bit   0	rc  cold reset
-// bit   1	rc  software warm reset
-// bit   2	rc  security violation (triggered by SSM)
-// bit   3	rc  watchdog 0 expired
-// bit   4	rc  watchdog 1 expired
-// bit   5	rc  external warm reset
-// bit   6	z-
-// bit   7	z-
-// bit   8	z-
-// bit   9	rc  icepick warm reset
-//
-// The placement of the icepick warm reset bit makes no sense... unless bit 8
-// is icepick cold reset.
+/*f08*/	EvReg<u32> dev_reset_event;
+	// bit   0	rc  cold reset
+	// bit   1	rc  software warm reset
+	// bit   2	rc  security violation (triggered by SSM)
+	// bit   3	rc  watchdog 0 expired
+	// bit   4	rc  watchdog 1 expired
+	// bit   5	rc  external warm reset
+	// bit   6	z-
+	// bit   7	z-
+	// bit   8	z-
+	// bit   9	rc  icepick warm reset
+	//
+	// The placement of the icepick warm reset bit makes no sense... unless
+	// bit 8 is icepick cold reset?
 
 /*f0c*/	u8  ramldo_pcharge_count;
 /*f0d*/	u8  ramldo_vsetup_count;
@@ -736,24 +688,83 @@ alignas(0x100)
 
 alignas(0x1000)
 	//-------- RTC domain power/reset management -------------------------//
-/*000*/	u32 rtc_pwrctrl;
-/*004*/	u32 rtc_pwrstat;
+
+/*000*/	u32 rtc_power_ctrl;
+	// bit   2	rw  logic retention-state
+	// bit   4	rx  request low power state change (auto-clears)
+
+/*004*/	u32 rtc_power_state;
+	// bit   2	r-  logic state
+	// bit  20	r-  transition in progress
 
 
 alignas(0x100)
 	//-------- Graphics domain power/reset management --------------------//
-/*100*/	u32 gfx_pwrctrl;
-/*104*/	u32 gfx_rstctrl;
-alignas(0x10)
-/*110*/	u32 gfx_pwrstat;
-/*114*/	io_u32 gfx_rststat;
+
+/*100*/	u32 gfx_power_ctrl;
+	// bits  0- 1	rw  requested power domain state
+	// bit   2	rw  logic retention-state
+	// bit   4	rx  request low power state change (auto-clears)
+	// bit   6	rw  memory retention-state
+	// bits 17-18	rw  memory on-state
+
+/*104*/	u32 gfx_reset_active;
+	// bit   0	rw  local reset asserted
+
+/*110*/	u32 gfx_power_state alignas(0x10);
+	// bits  0- 1	r-  power domain state
+	// bit   2	r-  logic state
+	// bits  4- 5	r-  memory state
+	// bit  20	r-  transition in progress
+
+/*114*/	EvReg<u32> gfx_reset_event;
+	// bit   0	rc  local reset occurred
 
 
 alignas(0x100)
 	//-------- Customer eFuse domain power/reset management --------------//
-/*200*/	u32 cefuse_pwrctrl;
-/*204*/	u32 cefuse_pwrstat;
+
+/*200*/	u32 cefuse_power_ctrl;
+	// bits  0- 1	rw  requested power domain state
+	// bit   4	rx  request low power state change (auto-clears)
+
+/*204*/	u32 cefuse_power_state;
+	// bits  0- 1	r-  power domain state
+	// bit   2	r-  logic state
+	// bit  20	r-  transition in progress
+	// bits 24-25	r>  previous low-power domain state
+	//	write unchanged value to reset this field to 3 (ON)
 
 };
 
 static_assert( offsetof( Prcm, clk_clk24mhz ) == 0x150, "" );
+static_assert( offsetof( Prcm, mod_cm3 ) == 0x4b0, "" );
+static_assert( offsetof( Prcm, clksel_io0_dbck ) == 0x53c, "" );
+
+
+template< PllType type >
+struct Pll {
+	PllConfig<type> &config;
+	PllControl &control;
+	PllStatus &status;
+	// XXX add remaining fields/info/traits
+};
+
+using PllS = Pll< DPLLS >;
+using PllLJ = Pll< DPLLLJ >;
+
+let static constexpr pll_core = PllS {
+	prcm.pll_core_config, prcm.pll_core_control, prcm.pll_core_status,
+};
+let static constexpr pll_per = PllLJ {
+	prcm.pll_per_config, prcm.pll_per_control, prcm.pll_per_status,
+};
+let static constexpr pll_mpu = PllS {
+	prcm.pll_mpu_config, prcm.pll_mpu_control, prcm.pll_mpu_status,
+};
+let static constexpr pll_ddr = PllS {
+	prcm.pll_ddr_config, prcm.pll_ddr_control, prcm.pll_ddr_status,
+};
+let static constexpr pll_disp = PllS {
+	prcm.pll_disp_config, prcm.pll_disp_control, prcm.pll_disp_status,
+};

@@ -1,0 +1,44 @@
+#!/usr/bin/perl
+
+use v5.14;
+use strict;
+use warnings qw( FATAL all );
+use autodie;
+
+sub mangle ($) {
+	my( $sym ) = @_;
+	my @sym = split /::/, $sym;
+	$_ = length . $_  for @sym;
+	join '', '_Z', (@sym > 1 ? 'N' : ()), @sym, 'E'
+}
+
+open my $mkfh, '>', 'modules.mk';
+
+while( <> ) {
+	chomp;
+	my( $mod, $addr, $include ) = split /\t/;
+
+	my $sym = $mod;
+	$mod =~ s/::/-/g;
+	$mod =~ s/(?<![^-])hw-(\w+)\z/$1/ or die;
+
+	open my $fh, '>', "hw-$mod.cc";
+	print $fh <<"END";
+#include "$include"
+#include "map-phys.h"
+[[ gnu::constructor(102) ]]
+let static initializer() -> void {
+	map_phys( ::$sym );
+}
+END
+	close $fh;
+
+	$sym = mangle $sym;
+	$addr =~ y/'//d;
+
+	open $fh, '>', "hw-$mod.ld";
+	print $fh "$sym = 0x$addr;\n";
+	close $fh;
+
+	print $mkfh "modules += hw-$mod.o\n";
+}

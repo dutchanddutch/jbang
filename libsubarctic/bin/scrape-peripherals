@@ -1,0 +1,65 @@
+#!/usr/bin/perl -CSD
+
+use v5.14;
+use strict;
+use warnings qw( FATAL all );
+use utf8;
+use autodie;
+
+my @ns;
+my $any_close;
+
+sub fail {
+	@_ = 'parse error'  unless @_;
+	warn "$ARGV:$.: @_\n";
+	@ns = ();
+	$any_close = 0;
+	close ARGV;
+}
+
+my $idRE = qr/(?x) [a-z] \w* /;
+my $nsRE = qr/(?x) (?: $idRE :: )* /o;
+my $qidRE = qr/(?x) $nsRE $idRE /o;
+my $tidRE = qr/(?x) $nsRE [A-Z] [A-Z0-9]* $idRE /o;
+
+while( <> ) {
+	chomp;
+
+	if( $any_close ) {
+		$any_close = 0  if /[{}]/;
+
+		if( /(?x) ^ \s* \} \z/ ) {
+			pop @ns;
+			next;
+		}
+	}
+
+	if( /(?x) ^ \s* (?: inline \s+ )? namespace \s+/g ) {
+		/(?x) \G ( $qidRE ) \s+ \{ /gc  or fail, next;
+		push @ns, $1;
+		m!(?x) \s+ // .* !gc;
+		/(?x) \z /gc  or fail, next;
+		$any_close = 1;
+		next
+	}
+
+	if( m,(?x) ^ \s* \} \s+ // \s+ (?: inline \s+ )? namespace \s+,g ) {
+		/(?x) \G ( $qidRE ) \z/gc  or fail, next;
+		@ns && $1 eq pop @ns  or fail, next;
+		next
+	}
+
+	m!(?x) ^ \s* extern \s+ $tidRE \s+
+		( $idRE ) ; \s+
+		// \s+ 0x( [45][0-9a-f]{2}'[0-9a-f]{2}'[0-9a-f]{3} ) \b
+		! or next;
+	my $addr = $2;
+	my $id = join '::', @ns, $1;
+	my $include = $ARGV;
+	$include =~ s,^(?:.*/)?include/,,;
+	say "$id\t$addr\t$include";
+
+} continue {
+	fail( "eof inside namespace @ns" ), next  if eof && @ns;
+	$. = 0  if eof;
+}

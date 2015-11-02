@@ -22,6 +22,9 @@ using not_t = typename __not_< Condition >::type;
 
 // some missing tests
 
+template< typename >	struct is_bool : public false_type {};
+template<>		struct is_bool<bool> : public true_type {};
+
 template< typename T >
 using is_signed_integral = and_t< is_integral<T>, is_signed<T> >;
 
@@ -59,7 +62,7 @@ MAKE_TRAIT_ALIAS_TEMPLATE(           floating_point           );
 MAKE_TRAIT_ALIAS_TEMPLATE(           integral                 );
 MAKE_TRAIT_ALIAS_TEMPLATE(              signed_integral       );
 MAKE_TRAIT_ALIAS_TEMPLATE(              unsigned_integral     );
-//MAKE_TRAIT_ALIAS_TEMPLATE(              bool                  );
+MAKE_TRAIT_ALIAS_TEMPLATE(              bool                  );
 //MAKE_TRAIT_ALIAS_TEMPLATE(              character             );
 MAKE_TRAIT_ALIAS_TEMPLATE(        null_pointer                );
 MAKE_TRAIT_ALIAS_TEMPLATE(  void                              );

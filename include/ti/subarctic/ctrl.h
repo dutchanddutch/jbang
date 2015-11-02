@@ -4,10 +4,16 @@
 #include "ti/bandgap.h"
 
 // Control Module
+//
+// I may still split this beast into more pieces...
 
 struct Ctrl;
+struct CtrlMisc;
 
-extern Phys< Ctrl > ctrl;  // 0x44e10000 (== l4wk + 0x2'10'000)
+inline namespace hw {
+	extern Ctrl	ctrl;		// 0x44e'10'000 (== l4wk + 0x2'10'000)
+	extern CtrlMisc	ctrl_misc;	// 0x44e'11'300 (== l4wk + 0x2'11'300)
+}
 
 
 struct Pad {
@@ -29,10 +35,10 @@ struct Pad {
 		rx_en = 1,
 	};
 
-	let inline mode() const { return value & 7; }
-	let inline pull() const { return (pull_t)( value >> 3 & 3 ); }
-	let inline rx()   const { return   (rx_t)( value >> 5 & 1 ); }
-	let inline slew() const { return (slew_t)( value >> 6 & 1 ); }
+	let constexpr mode() const { return value & 7; }
+	let constexpr pull() const { return (pull_t)( value >> 3 & 3 ); }
+	let constexpr rx()   const { return   (rx_t)( value >> 5 & 1 ); }
+	let constexpr slew() const { return (slew_t)( value >> 6 & 1 ); }
 
 
 	constexpr Pad( Pad const & ) = default;
@@ -41,20 +47,36 @@ struct Pad {
 		: value( mode | pull << 3 | rx << 5 | slew << 6 ) {}
 
 
-	let static inout( uint mode, pull_t pull, slew_t slew = fast ) {
+	let static constexpr io( uint mode, pull_t pull, slew_t slew = fast ) {
 		return Pad { mode, pull, rx_en, slew };
 	}
-	let static in( uint mode, pull_t pull, slew_t slew = fast ) {
+	let static constexpr in( uint mode, pull_t pull, slew_t slew = fast ) {
 		return Pad { mode, pull, rx_en, slew };
 	}
-	let static in( uint mode, slew_t slew = fast ) {
+	let static constexpr in( uint mode, slew_t slew = fast ) {
 		return Pad { mode, no_pull, rx_en, slew };
 	}
-	let static out( uint mode, pull_t pull, slew_t slew = fast ) {
+	let static constexpr out( uint mode, pull_t pull, slew_t slew = fast ) {
 		return Pad { mode, pull, rx_dis, slew };
 	}
-	let static out( uint mode, slew_t slew = fast ) {
+	let static constexpr out( uint mode, slew_t slew = fast ) {
 		return Pad { mode, no_pull, rx_dis, slew };
+	}
+
+	let static constexpr gpio( pull_t pull, slew_t slew = fast ) {
+		return Pad { 7, pull, rx_en, slew };
+	}
+	let static constexpr gpin( pull_t pull, slew_t slew = fast ) {
+		return Pad { 7, pull, rx_en, slew };
+	}
+	let static constexpr gpin( slew_t slew = fast ) {
+		return Pad { 7, no_pull, rx_en, slew };
+	}
+	let static constexpr gpout( pull_t pull, slew_t slew = fast ) {
+		return Pad { 7, pull, rx_dis, slew };
+	}
+	let static constexpr gpout( slew_t slew = fast ) {
+		return Pad { 7, no_pull, rx_dis, slew };
 	}
 };
 
@@ -93,6 +115,16 @@ alignas(0x40)
 	// bits  6- 7	rw  sysboot 14-15: osc 0 frequency
 	//			0=19.2  1=24  2=25  3=26  MHz
 
+	let osc0_freq() const -> uint {
+		static const uint freq[] = {
+			19'200'000,
+			24'000'000,
+			25'000'000,
+			26'000'000,
+		};
+		return freq[ sysboot_hi >> 6 & 3 ];
+	}
+
 alignas(4)
 /*044*/	bool bl_done;	//rw  (free use)
 alignas(2)
@@ -114,8 +146,8 @@ alignas(0x100)
 /*108*/	u32 sec_emu_mpu;	//r-
 
 alignas(0x10)
-/*110*/	u32 exp_emif_config;	//rw
-/*114*/	u32 exp_emif_config2;	//rw
+/*110*/	u32 emif_config;	//rw
+/*114*/	u32 emif_config2;	//rw
 
 alignas(0x80)
 /*180*/	u32 jtag_access;
@@ -160,7 +192,7 @@ alignas(0x80)
 
 /*1e0*/	u32 mpu_l2_config;  //rw  (aegis)
 
-alignas(0x200)
+alignas(0x100)
 /*200*/	u8  cek[16];
 	// more keying stuff here, but layout unclear, and all-zero anyway.
 
@@ -227,7 +259,7 @@ alignas(0x100)
 
 	//-------- LDO and PLL controls --------------------------------------//
 
-alignas(0x400)
+alignas(0x100)
 /*400*/	u32 vbb_ldo[10];
 	// 7 = mpu
 
@@ -242,9 +274,9 @@ alignas(0x400)
 /*448*/	Bandgap bandgap[2];
 	// only one present in subarctic and aegis
 
-/*458*/	uint mpu_pll_ulow_sel	: 1;
-	uint disp_pll_ulow_sel	: 1;
-	uint ddr_pll_ulow_sel	: 1;
+/*458*/	uint pll_mpu_ulow_sel	: 1;
+	uint pll_disp_ulow_sel	: 1;
+	uint pll_ddr_ulow_sel	: 1;
 	// 0 = core-m6
 	// 1 = per-m2
 
@@ -276,7 +308,7 @@ alignas(0x100)
 
 	//-------- Device configuration --------------------------------------//
 
-alignas(0x200)
+alignas(0x100)
 /*600*/	u32 jtag_id;	//r-  x'b944'02f  where x is:
 	// 0 = revision 1.0
 	// 1 = revision 2.0
@@ -384,6 +416,8 @@ alignas(0x200)
 	};
 
 /*630*/	EthAddr ethaddr[2];
+	// first and last address of range assigned to device
+	// (2 addresses on centaurus, 3 on subarctic)
 
 /*640*/	u32 _sw_revision;
 
@@ -494,7 +528,7 @@ alignas(0x100)
 
 	//-------- Pad configuration -----------------------------------------//
 
-alignas(0x800)
+alignas(0x100)
 /*800*/	Pad pad[ 384 ];  // 211 entries present
 	// After reset, input_en is true and slow_slew is false for all pads,
 	// function is 7 (gpio) for pads 0-109
@@ -508,8 +542,8 @@ alignas(0x800)
 
 
 /*e00*/	u8 vddhv_level;  //r-  0=1.8V  1=3.3V
-/*e01*/	u8 vddhv_detect_ok;
-/*e02*/	u8 _vddhv_something;
+/*e01*/	u8 vddhv_status;
+/*e02*/	u8 vddhv_config;
 	// bit   0	vddhv1, gpmc
 	// bit   1	mmc a
 	// bit   2	mmc b
@@ -519,10 +553,34 @@ alignas(0x800)
 	// mmc are vddhv2 and vddhv4
 	// eth are vddhv3 and vddhv5
 
+
+	// note: only emif/ddr 0 present on subarctic
+	// note 2: most of the ddr io config moved further down, offset 1404
+
 /*e04*/	u32 ddr_io_ctrl[2];
+	// bit  28	rw  driver mode: 0 = STL (ddr2/3), 1 = CMOS (lpddr1)
+	// bit  29	r-
+	// bit  30	rw  disable 32kHz clock (only required during init)
+	// bit  31	rw  disable ddr3 reset
+
 /*e0c*/	u32 ddr_vtp_ctrl[2];
+	// bit   0	rw  reset (active low)
+	// bits  1- 3	rw  filter value - 1
+	// bit   4	rw  freeze dynamic update, power down controller
+	// bit   5	r-  vtp training complete
+	// bit   6	rw  vtp bypass (active low) - use defaults only
+	// bit   7	z-
+	// bits  8-14	r-  default 'N' value
+	// bit  15	z-
+	// bits 16-22	r-  default 'P' value
+	// bit  23-31	z-
+
 /*e14*/	u32 ddr_vref_ctrl;
-	// note: only one emif present on subarctic
+	// bit   0	rw  use internal reference
+	// bits  1- 2	rw  internal reference tap
+	// bit   3	rw  enable coupling capacitor between bias2 and vss
+	// bit   4	rw  enable coupling capacitor between bias2 and vdds
+
 
 /*e18*/	u32 _mlbp_sig_io_ctrl;
 /*e1c*/	u32 _mlbp_dat_io_ctrl;
@@ -535,38 +593,63 @@ alignas(0x800)
 
 alignas(0x100)
 /*f00*/	u8 _dsp_irq_src[81];	// irq 15-95
+
 alignas(4)
 /*f54*/	u8 _mc_irq_src[57];	// irq 7-63
+
 alignas(4)
 /*f90*/	u8 edma_ev_src[64];	// channel 0-63
+	// (see ti/subarctic/edma.h )
+
 alignas(4)
 /*fd0*/	u8 timer_ev_src[3];	// timer 5-7
 alignas(4)
 /*fd4*/	u8 ecap_ev_src[3];	// ecap 0-2
+	//  0    = corresponding pin input
+	//  1- 6 = uart 0-5 irq
+	//  7-10 = ethss (core 0): rxlow, rx, tx, misc
+	// 11-12 = mcasp 0: tx, rx
+	// 13-14 = mcasp 1: tx, rx
+	// 15-16 = -
+	// 17-24 = gpio 0a, 0b, 1a, 1b, 2a, 2b
+	// 25-27 = can 0: if 0, if 1, parity
+	// 28-30 = can 1: if 0, if 1, parity
+
 alignas(4)
 /*fd8*/	u32 adc_ev_src[2];	// adc 0
 	// 0 = pruss host irq 2
-	// 1 = timer 4 event
-	// 2 = timer 5 event
-	// 3 = timer 6 event
-	// 4 = timer 7 event
+	// 1 = timer 4 irq
+	// 2 = timer 5 irq
+	// 3 = timer 6 irq
+	// 4 = timer 7 irq
 	// 5 = ext_hw_trigger (aegis)
 
 
 	//-------- Reset isolation -------------------------------------------//
 
-alignas(0x1000)
+alignas(0x100)
 /*000*/	u32 reset_iso;
 	// bit   0	rw  ethernet switch
 	// bit   1	rw  jtag (aegis)
+};
 
-alignas(0x200)
-/*200*/	u8 _1200[ 0x100 ];
+static_assert( offsetof( Ctrl, mrgn_mode ) == 0x6c0, "" );
+static_assert( offsetof( Ctrl, dev_attr_subarctic ) == 0x7fc, "" );
+static_assert( offsetof( Ctrl, ddr_vref_ctrl ) == 0xe14, "" );
+static_assert( offsetof( Ctrl, adc_ev_src ) == 0xfd8, "" );
 
 
-	//-------- Misc power management -------------------------------------//
+// offset 0x1300
+//
+struct CtrlMisc {
+	//-------- Miscellaneous ---------------------------------------------//
+	//
+	// Apparently "SMA" stands for "Selectively Modifiable Attribute"...
+	// I guess that means they can still change the r/w attributes of those
+	// registers very easily late in the process to wire last-minute stuff.
 
-/*300*/	u8 _1300[ 0x18 ];
+/*00*/	u8 _00[ 0x18 ];
+
 
 	enum class PllPower : u8 {
 		off	= 0b1'0'1111'00,
@@ -579,73 +662,52 @@ alignas(0x200)
 		hw	= 0b0'0'0000'11,  // auto-managed
 	};
 
-/*318*/	PllPower pll_mpu_pwrctl;  // (aegis)
-/*319*/	PllPower pll_per_pwrctl;
-/*31a*/	PllPower pll_disp_pwrctl;
-/*31b*/	PllPower pll_ddr_pwrctl;
+	// "SMA0"  (not used in subarctic 1.0)
+/*18*/	PllPower pll_mpu_pwrctrl;  // (aegis)
+/*19*/	PllPower pll_per_pwrctrl;
+/*1a*/	PllPower pll_disp_pwrctrl;
+/*1b*/	PllPower pll_ddr_pwrctrl;
 	// Default state is normal.
 	// To power down, move in reverse sequence from hw to off.
 	// To power up, move in forward sequence from off to hw, but wait
 	// after moving to pon and pgood for confirmation in corresponding
 	// pwrstatus register.
 
-/*31c*/	u32 ddr_cke_ctrl;
 
-/*320*/	uint pin_25_f3_sel	: 1;  // sub-mux for pin 25 ("GPMC_A9") mode 3
+	// "SMA1"
+/*1c*/	u32 ddr_cke_gate;
+	// bit   0	rw  0 = cke forced low, 1 = cke controlled by emif
+	//
+	// set for normal operation.  can be cleared when in self-refresh or
+	// power-down to ensure it stays that way while reinitializing emif.
+
+
+	// "SMA2"  (not used in subarctic 1.0)
+/*20*/	uint pin_25_f3_sel : 1;  // sub-mux for pin 25 ("GPMC_A9") mode 3
 	// 0 = mmc 2 d7
 	// 1 = rmii 1 crs/rxdv
 
 	bool vsldo_core_auto_ramp : 1;
+	u32 : 0;
 
-	struct {
-/*324*/		u32 _clear;
 
-		let operator () () -> void {
-			_clear = 1;
-			write_barrier( _clear );
-			_clear = 0;
+	//-------- Power management IPC --------------------------------------//
+
+	// cortex-a8 irq 78 is set by a 'sev' instruction on the wakeup-M3 and
+	// cleared via this register.
+/*24*/	struct : public wo_u32 {
+		let operator () () {
+			wo_u32 &super = self;
+			super( 1 );
+			super( 0 );
 		}
-	} m3_txev_eoi;
+	} ipc_eoi;
 
- union {
-/*328*/	a8_pa_t mpu_resume_addr;
-/*328*/	u32 ipc_msg[8];
- };
+  union {
+	// used by boot ROM for resume after MPU powerdown
+/*28*/	u32 resume_addr;
 
-/*348*/	u32 rtc_idle;
-
-	//-------- DDR PHY pad config ----------------------------------------//
-
-alignas(0x100)
-/*400*/	u32 _1400;
-
-	template< uint n >
-	struct DDRPadconf {
-		static_assert( n >= 1 && n <= 11, "" );
-
-		uint drive	:  3;
-		uint slew	:  2;
-		uint drive_clk	:  3;  // cmd macro 0 and data macros only
-		uint slew_clk	:  2;  // cmd macro 0 and data macros only
-		uint pullup	:  n;
-		uint pulldown	:  n;
-		// pull up/down are one bit per I/O line.
-		// setting both bits selects bus keeper.
-	};
-
-	// argh
-	using DDRCmdPadconf = DDRPadconf< 11 >;
-	using DDRDataPadconf = DDRPadconf< 10 >;
-
-/*404*/	DDRCmdPadconf ddr_cmd_ioctl[3];
-
-alignas(0x40)
-/*440*/	DDRDataPadconf ddr_data_ioctl[5];
-	// dunno why 5 seem to be present, only first two are documented
+	// used freely for communication with wakeup-M3
+/*28*/	u32 ipc_msg[8];
+  };
 };
-
-static_assert( offsetof( Ctrl, mrgn_mode ) == 0x6c0, "" );
-static_assert( offsetof( Ctrl, dev_attr_subarctic ) == 0x7fc, "" );
-static_assert( offsetof( Ctrl, ddr_vref_ctrl ) == 0xe14, "" );
-static_assert( offsetof( Ctrl, adc_ev_src ) == 0xfd8, "" );
-static_assert( offsetof( Ctrl, rtc_idle ) == 0x1348, "" );
