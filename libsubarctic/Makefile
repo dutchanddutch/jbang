@@ -14,7 +14,7 @@ peripherals.txt:
 	find ${srcdir}include/ -type f -name '*.h' \
 		-exec ${topdir}bin/scrape-peripherals {} \+ >$@
 
-all :: libsubarctic.a(${modules} map-phys.o)
+all :: modules.mk libsubarctic.a(${modules} map-phys.o)
 
 ${modules}: %.o: %.cc %.ld
 	${LINK.cc} -nostdlib -r ${^:%.h=} ${OUTPUT_OPTION}
@@ -35,4 +35,5 @@ pkgs =
 
 include common.mk
 
-#CXXFLAGS += -fno-exceptions -fno-rtti -fno-threadsafe-statics
+CXXFLAGS += -fno-exceptions -fno-rtti -fno-threadsafe-statics
+LD = ${CC}

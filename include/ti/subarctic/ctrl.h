@@ -115,14 +115,18 @@ alignas(0x40)
 	// bits  6- 7	rw  sysboot 14-15: osc 0 frequency
 	//			0=19.2  1=24  2=25  3=26  MHz
 
+	let osc0_freq_sel() const -> uint {
+		return sysboot_hi >> 6 & 3;
+	}
+
 	let osc0_freq() const -> uint {
-		static const uint freq[] = {
+		static constexpr uint freq[] = {
 			19'200'000,
 			24'000'000,
 			25'000'000,
 			26'000'000,
 		};
-		return freq[ sysboot_hi >> 6 & 3 ];
+		return freq[ osc0_freq_sel() ];
 	}
 
 alignas(4)
@@ -378,10 +382,10 @@ alignas(0x100)
 		bool chgdet_rst	:  1;
 		bool src_on_dm	:  1;  // instead of dp
 		bool sink_on_dp	:  1;  // instead of dm
-		bool vsrc_en	:  1;
 		bool isink_en	:  1;
-	/*1*/	bool dm_pullup	:  1;
-		bool dp_pullup	:  1;
+		bool vsrc_en	:  1;
+	/*1*/	bool dm_pd	:  1;
+		bool dp_pu	:  1;
 		bool chgdet_ext	:  1;
 		bool _ctl_11	:  1;
 
@@ -390,8 +394,8 @@ alignas(0x100)
 		bool gpio_cross	:  1;
 		bool _ctl_15	:  1;
 	/*2*/	bool _ctl_16	:  1;
-		bool dp_pulldn	:  1;  // gpio-mode only
-		bool dm_pulldn	:  1;  // gpio-mode only
+		bool gpio_dp_pd	:  1;
+		bool gpio_dm_pd	:  1;
 
 		bool vdet_en	:  1;  // VBUS detection (except Session End)
 		bool sedet_en	:  1;  // Session End detection enabled

@@ -1,7 +1,6 @@
 #pragma once
 #include "defs.h"
 #include "util/device.h"
-#include <algorithm>
 
 // Subarctic has one DPLLLJ instance and four DPLLS instances (one with HSD).
 //
@@ -45,6 +44,10 @@ struct alignas(4) PllConfig< DPLLS > {
 	bool alt_bypass	:  1;  // use ulow as bypass clock
 	uint dcc_count	:  8;
 
+	constexpr PllConfig( uint prediv, uint mult )
+		: _prediv( prediv - 1 ), _mult( mult / 2 ),
+		  dcc_en( false ), alt_bypass( false ), dcc_count( false ) {}
+
 	// TODO these constants are properties of the PLL, not of the register
 	// interface.  Move them to a traits class or something...
 
@@ -76,6 +79,10 @@ struct alignas(4) PllConfig< DPLLLJ > {
 	uint		:  3;
 	bool alt_bypass	:  1;  // use ulow as bypass clock
 	uint sd_divider	:  8;  // must be set to ceil( dco / 250 MHz )
+
+	constexpr PllConfig( uint prediv, uint mult, uint sddiv )
+		: _prediv( prediv - 1 ), _mult( mult ),
+		  alt_bypass( false ), sd_divider( sddiv ) {}
 
 	let static constexpr predivider_scale = 1u;
 	let static constexpr predivider_min = 1u;
@@ -224,7 +231,7 @@ struct alignas(4) PllControl {
 	bool ssc_ack	: 1;  //r-
 	bool ssc_down	: 1;  //rw  downspread instead of center-spread
 	uint ssc_type	: 1;  //rw
-	//	0=triangula44e09000r
+	//	0=triangular
 	//	1="only available under proper licensing agreement"
 };
 

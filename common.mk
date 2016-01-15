@@ -4,13 +4,18 @@
 
 SHELL := /bin/bash
 
+ifndef CROSS_COMPILE
+ifneq ($(g++ -dumpmachine),"arm-linux-gnueabihf")
+CROSS_COMPILE := arm-linux-gnueabihf-
+endif
+endif
+
 CXX = ${CROSS_COMPILE}g++
 CC = ${CROSS_COMPILE}gcc
 LD = ${CXX}
 LDFLAGS =
 LDLIBS =
-flags = -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mthumb
-CC = ${CROSS_COMPILE}gcc
+flags = -march=armv7-a -mfpu=neon -mfloat-abi=hard -mthumb
 CFLAGS = ${flags}
 CXXFLAGS = ${flags}
 CPPFLAGS = -I . -I include
@@ -19,11 +24,17 @@ flags += -fno-strict-aliasing -fwrapv
 CXXFLAGS += -std=gnu++1y
 CXXFLAGS += -fno-operator-names
 CXXFLAGS += -Wno-invalid-offsetof
-flags += -Og -g
+flags += -O2
+ifndef no_debug
+flags += -fno-schedule-insns -fno-schedule-insns2
+flags += -g
+endif
 flags += -Wall -Wextra
 flags += -Werror
-flags += -Wno-unused-parameter -Wno-error=unused-function
-flags += -ffunction-sections -fdata-sections
+flags += -Wno-unused-parameter
+flags += -Wno-error=unused-function
+#flags += -ffunction-sections
+#flags += -fdata-sections
 
 flags += -fmax-errors=3
 

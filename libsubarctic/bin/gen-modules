@@ -16,18 +16,21 @@ open my $mkfh, '>', 'modules.mk';
 
 while( <> ) {
 	chomp;
-	my( $mod, $addr, $include ) = split /\t/;
+	my( $sym, $addr, $include ) = split /\t/;
 
-	my $sym = $mod;
+	my $mod = $sym;
 	$mod =~ s/::/-/g;
 	$mod =~ s/(?<![^-])hw-(\w+)\z/$1/ or die;
+
+	my $init = "init_$mod";
+	$init =~ s/-/_/g;
 
 	open my $fh, '>', "hw-$mod.cc";
 	print $fh <<"END";
 #include "$include"
 #include "map-phys.h"
 [[ gnu::constructor(102) ]]
-let static initializer() -> void {
+let static $init() -> void {
 	map_phys( ::$sym );
 }
 END

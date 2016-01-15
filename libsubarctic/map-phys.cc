@@ -17,9 +17,6 @@ let static devmem() -> int
 // flat-map physical address range
 let map_phys( uintptr_t addr, size_t size ) -> void
 {
-	size += addr & 0xfff;
-	addr -= addr & 0xfff;
-	size += -size & 0xfff;
 	if( mmap( (void *)addr, size, PROT_READ | PROT_WRITE,
 				MAP_SHARED | MAP_FIXED, devmem(), addr )
 			== MAP_FAILED )

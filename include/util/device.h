@@ -184,9 +184,9 @@ struct EvReg {
 /*00*/	T const pending;
   };
 	let clear( T bits ) & -> void {
-		barrier( pending );  // prevent earlier reads moving down
+		barrier();  // prevent earlier reads moving down
 		_clear( bits );
-		barrier( pending );  // prevent later reads before up
+		barrier();  // prevent later reads moving up
 	}
 
 	let take( T bits = ~T{0} ) & -> T {
