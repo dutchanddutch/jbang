@@ -78,7 +78,7 @@ MAKE_TRAIT_ALIAS_TEMPLATE(  volatile  );
 
 // various properties
 MAKE_TRAIT_ALIAS_TEMPLATE(  trivial             );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_copyable  );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_copyable  );
 MAKE_TRAIT_ALIAS_TEMPLATE(  standard_layout     );
 MAKE_TRAIT_ALIAS_TEMPLATE(  pod                 );
 MAKE_TRAIT_ALIAS_TEMPLATE(  literal_type        );
@@ -87,7 +87,7 @@ MAKE_TRAIT_ALIAS_TEMPLATE(  literal_type        );
 MAKE_TRAIT_ALIAS_TEMPLATE(  empty        );
 MAKE_TRAIT_ALIAS_TEMPLATE(  polymorphic  );
 MAKE_TRAIT_ALIAS_TEMPLATE(  abstract     );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  final        );
+MAKE_TRAIT_ALIAS_TEMPLATE(  final        );
 
 // these don't refer just to the true signed/unsigned integral types but they
 // classify *all* arithmetic types into signed (-1 < 0) vs unsigned (-1 > 0)
@@ -98,27 +98,27 @@ MAKE_TRAIT_ALIAS_TEMPLATE(  unsigned  );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  default_constructible            );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_default_constructible    );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_default_constructible  );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_default_constructible  );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  copy_constructible               );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_copy_constructible       );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_copy_constructible     );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_copy_constructible     );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  move_constructible               );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_move_constructible       );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_move_constructible     );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_move_constructible     );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  copy_assignable                  );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_copy_assignable          );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_copy_assignable        );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_copy_assignable        );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  move_assignable                  );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_move_assignable          );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_move_assignable        );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_move_assignable        );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  destructible                     );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_destructible             );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_destructible           );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_destructible           );
 
 
 // Remaining ones don't fit the original macro.
@@ -136,7 +136,7 @@ using if_has_virtual_destructor_t =
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  constructible            );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_constructible    );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_constructible  );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_constructible  );
 
 #undef MAKE_TRAIT_ALIAS_TEMPLATE
 
@@ -146,7 +146,7 @@ MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_constructible    );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  assignable            );
 MAKE_TRAIT_ALIAS_TEMPLATE(  nothrow_assignable    );
-//MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_assignable  );
+MAKE_TRAIT_ALIAS_TEMPLATE(  trivially_assignable  );
 
 MAKE_TRAIT_ALIAS_TEMPLATE(  same         );
 MAKE_TRAIT_ALIAS_TEMPLATE(  base_of      );

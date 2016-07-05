@@ -83,8 +83,11 @@ struct Pad {
 
 struct Ctrl {
 /*000*/	u32 ident;	//r-
-	// 4e8b0100	subarctic 2.0 (XAM3359AZCZ100)
-	// 4e8c0001	centaurus 2.0 (DM8148BCYE0)
+	// 4e8b0100	subarctic 2.0	(XAM3359AZCZ100)
+	//
+	// (for comparison)
+	// 4e8b5100	netra 1.1	(DM8168ACYG)
+	// 4e8c0001	centaurus 2.0	(DM8148BCYE)
 
 /*004*/	u32 hwinfo;	//z-
 
@@ -92,7 +95,7 @@ alignas(0x10)
 /*010*/	u32 sysconfig;
 	// bit   0	z-  (reset)
 	// bit   1	1-  (emu-free)
-	// bits  2- 3	rw  idlemode
+	// bits  2- 3	rw  idlemode: 2
 	// bits  4- 6	r-  standbymode: 2  (bogus, ctrl is no initiator)
 
 
@@ -134,6 +137,14 @@ alignas(4)
 alignas(2)
 /*046*/	u8   bl_err;	//rw  (free use, actually u4)
 
+/*048*/	u32  _dsp_boot;
+
+
+	//-------- MMR lock (not implemented) --------------------------------//
+
+alignas(0x20)
+/*060*/	u32 _mmr_lock[0];
+
 
 	//-------- Security-related stuff ------------------------------------//
 
@@ -152,6 +163,17 @@ alignas(0x100)
 alignas(0x10)
 /*110*/	u32 emif_config;	//rw
 /*114*/	u32 emif_config2;	//rw
+
+/*118*/	u32 sw_cfg;
+/*11c*/	u32 sw_ccfg;
+
+/*120*/	u8  mpk[32];
+
+/*140*/	u32 swrv;
+
+alignas(0x20)
+/*160*/	u32 _160;		//rw
+/*164*/	u32 _164;		//rw
 
 alignas(0x80)
 /*180*/	u32 jtag_access;
@@ -194,7 +216,7 @@ alignas(0x80)
 /*1d8*/	u32 _1d8;
 /*1dc*/	u32 _1dc;
 
-/*1e0*/	u32 mpu_l2_config;  //rw  (aegis)
+/*1e0*/	u32 mpu_l2_config;	//rw  (aegis)
 
 alignas(0x100)
 /*200*/	u8  cek[16];
@@ -206,6 +228,8 @@ alignas(0x40)
 /*244*/	u32 secmem_status;
 /*248*/	u64 sec_err_stat_app;
 /*250*/	u64 sec_err_stat_dbg;
+
+	// more keying stuff here, but layout unclear, and all-zero anyway.
 
 
 	//-------- Secure State Machine (SSM) config -------------------------//
@@ -318,11 +342,30 @@ alignas(0x100)
 	// 1 = revision 2.0
 	// 2 = revision 2.1
 
-/*604*/	u32 features;	//r-  20ff0383
+/*604*/	u32 features;	//r-
+	// 00000000 111111 00 00000011 00000010  am3351
+	// 00000000 111111 00 00000011 10000010  am3352
+	// 00100000 111111 00 00000011 10000010  am3354
+	// 00000000 111111 01 00000011 10000011  am3356
+	// 00000000 111111 11 00000011 10000011  am3357
+	// 00100000 111111 01 00000011 10000011  am3358
+	// 00100000 111111 11 00000011 10000011  am3359
+	// 00000010 000000 00 00000000 11101111  am4376
+	// 00000010 000000 11 00000000 11101111  am4377
+	// 00100010 000000 00 00000000 11101111  am4378
+	// 00100010 000000 11 00000000 11101111  am4379
+	//
 	// bit   0	pruss
 	// bit   1	ethernet
+	// bit   2	aes (aegis)
+	// bit   3	des (aegis)
+	// bit   4	-
+	// bit   5	rng (aegis)
+	// bit   6	hash (aegis)
 	// bit   7	can
-	// bits  8- 9	?
+	// bit   8	? (subarctic)
+	// bit   9	? (subarctic)
+	// bits 10-15	-
 	// bits 16-23	pruss features:
 	// bit  16	  ethercat / ODD_NIBBLE
 	// bit  17	  TX_AUTO_SEQUENCE
@@ -375,13 +418,13 @@ alignas(0x100)
 
 /*61c*/	u32 _dsp_sysconfig;
 
-	struct alignas(8) UsbPhy {
+	struct alignas(4) UsbConfig {
 	/*0*/	bool cm_pwrdn	:  1;
 		bool otg_pwrdn	:  1;
 		bool chgdet_dis	:  1;
 		bool chgdet_rst	:  1;
-		bool src_on_dm	:  1;  // instead of dp
-		bool sink_on_dp	:  1;  // instead of dm
+		bool src_on_dm	:  1;  // instead of d+
+		bool sink_on_dp	:  1;  // instead of d-
 		bool isink_en	:  1;
 		bool vsrc_en	:  1;
 	/*1*/	bool dm_pd	:  1;
@@ -389,9 +432,12 @@ alignas(0x100)
 		bool chgdet_ext	:  1;
 		bool _ctl_11	:  1;
 
+		// The GPIO mode pins of the usb phy are actually connected to
+		// uart2 for usb0 and uart3 for usb1.  By default d+ is used as
+		// tx and d- as rx but this can be swapped using gpio_cross.
 		bool gpio_en	:  1;
-		bool gpio_inv	:  1;
-		bool gpio_cross	:  1;
+		bool gpio_inv	:  1;  // invert both signals
+		bool gpio_cross	:  1;  // swap tx and rx
 		bool _ctl_15	:  1;
 	/*2*/	bool _ctl_16	:  1;
 		bool gpio_dp_pd	:  1;
@@ -403,11 +449,14 @@ alignas(0x100)
 		bool _ctl_22	:  1;
 		bool dp_dm_swap	:  1;
 
-	/*3*/	u8 _ctl_24_31;	//rw  must be kept at 0x3c
+	/*3*/	u8 _ctl_24_31 = 0x3c;  // must be kept at this value
+	};
 
+	struct alignas(8) UsbPhy {
+	/*0*/	UsbConfig config;
 	/*4*/	u8 chgdet_status;
 
-	/*5*/	bool wakeup_ev	:  1;
+	/*5*/	bool wakeup_ev	:  1;  // aegis
 	};
 
 /*620*/	UsbPhy usbphy[2];
@@ -451,10 +500,10 @@ alignas(4)
 /*65c*/	u32 _65c;
 /*660*/	u32 _660;
 
-/*664*/	u32 pwmss_config;
-	// bit   0	rw  enable timebase clock for pwmss 0
-	// bit   1	rw  enable timebase clock for pwmss 1
-	// bit   2	rw  enable timebase clock for pwmss 2
+/*664*/	u32 pwm_tbclken;
+	// bit   0	rw  enable timebase clock for pwm 0
+	// bit   1	rw  enable timebase clock for pwm 1
+	// bit   2	rw  enable timebase clock for pwm 2
 
 /*668*/	u32 _668, _66c;
 
@@ -699,7 +748,7 @@ struct CtrlMisc {
 
 	// cortex-a8 irq 78 is set by a 'sev' instruction on the wakeup-M3 and
 	// cleared via this register.
-/*24*/	struct : public wo_u32 {
+/*24*/	struct : wo_u32 {
 		let operator () () {
 			wo_u32 &super = self;
 			super( 1 );

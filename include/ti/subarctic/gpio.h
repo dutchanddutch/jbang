@@ -1,7 +1,6 @@
 #pragma once
 #include "defs.h"
 #include "util/device.h"
-#include "util/array.h"
 #include "ti/gpio.h"
 
 inline namespace hw {

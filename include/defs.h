@@ -1,12 +1,17 @@
 #pragma once
 #include "config/init.h"
 #include "util/meta.h"
+#include <array>
 #include <cstddef>
 #include <cstdint>
 
-// Remove pollution that compiler or standard headers may have introduced.
+// Remove some pollution that compiler or standard headers may have introduced.
 #undef linux		// __linux__
 #undef unix		// __unix__
+#undef BIG_ENDIAN	// __BIG_ENDIAN
+#undef LITTLE_ENDIAN	// __LITTLE_ENDIAN
+#undef PDP_ENDIAN	// __PDP_ENDIAN
+
 
 using namespace std;
 
@@ -108,6 +113,24 @@ let constexpr min( L a, R b ) {  return a < b ? a : b;  }
 
 template< typename L, typename R >
 let constexpr max( L a, R b ) {  return a < b ? b : a;  }
+
+
+//============== Count elements ==============================================//
+
+// While a countof() macro is simpler, this thing is actually safe from abuse.
+// For example, you can't accidently use it on an array-parameter.
+
+template< typename Array, typename = if_array_t<Array> >
+let constexpr countof( Array & ) -> size_t {
+	return extent<Array>{};
+}
+
+// Plus, it can now be overloaded easily:
+
+template< typename T, size_t n >
+let constexpr countof( array<T,n> const volatile & ) -> size_t {
+	return n;
+}
 
 
 //============== Euclidean remainder =========================================//

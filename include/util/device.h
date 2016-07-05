@@ -119,79 +119,116 @@ let inline conceal( T &m ) -> T &
 }
 
 
-//============== Types =======================================================//
+//============== Memory-mapped I/O types =====================================//
 //
-// memory-mapped I/O types
+// Note that I try use these only when reads have side-effects or when writes
+// have side-effects that cannot be explained as being the result of changing
+// the register's value.  Otherwise, a limited barrier probably suffices.
 //
-// "in_" and "wo_" indicate read-only and write-only registers.  I used to
-// declare the read-only registers as const volatile but that sometimes
-// triggered weird compiler errors.
+// Peripherals which are fussy about access types often also need volatile
+// slapped on, although I really wish there was a better alternative.
 //
-// Note that I use these only when reads have side-effects or when writes have
-// side-effects that cannot be explained as being the result of changing the
-// register's value.  Otherwise, a limited barrier probably suffices.
+// I'm just trying different approaches to see which is more reusable and
+// least disgusting...
 
-template< typename T = u32 >
-struct InReg {
-	static_assert( is_integral<T>{}, "" );
 
-	T volatile reg;
+// Common base class
+//
+template< typename T >
+struct IoRegBase {
+	// TODO right now it really only works for scalars in practice
 
-	let operator () () -> T {  return reg;  }
+	static_assert( is_trivially_copyable<T>{}, "" );
+
+	IoRegBase( IoRegBase<T> const & ) = delete;
+
+private:
+	T volatile _io;
+
+protected:
+	let read() -> T {
+		return _io;
+	}
+	let write( T val ) -> T {
+		_io = val;
+		return val;
+	}
 };
 
-template< typename T = u32 >
-struct OutReg {
-	static_assert( is_integral<T>{}, "" );
 
-	T volatile reg;
+// I/O registers.  For now they emulate the type 'T volatile' itself, but they
+// also have explicit read and write methods.
+//
+template< typename T >
+struct IoReg : IoRegBase<T> {
+	using IoRegBase<T>::read;
+	using IoRegBase<T>::write;
 
-	let operator () ( T val ) -> void {  reg = val;  }
+	// compatibility stuff begins here
+
+	operator T () volatile {  return read();  }
+
+	let operator = ( T value ) volatile -> T {  return write( value );  }
 };
 
+using io_u8  = IoReg<u8>;
+using io_u16 = IoReg<u16>;
+using io_u32 = IoReg<u32>;
+using io_u64 = IoReg<u64>;
 
-using io_u64 = u64 volatile;
+
+// Read-only registers, callable objects with signature () -> T
+//
+template< typename T >
+struct InReg : IoRegBase<T> {
+	using IoRegBase<T>::read;
+
+	let operator () () -> T {  return read();  }
+};
+
+using in_u8  = InReg<u8>;
+using in_u16 = InReg<u16>;
+using in_u32 = InReg<u32>;
 using in_u64 = InReg<u64>;
+
+
+// Write-only registers, callable objects with signature ( T ) -> T
+//
+template< typename T >
+struct OutReg : IoRegBase<T> {
+	using IoRegBase<T>::write;
+
+	let operator () ( T val ) -> T {  return write( val );  }
+};
+
+using wo_u8  = OutReg<u8>;
+using wo_u16 = OutReg<u16>;
+using wo_u32 = OutReg<u32>;
 using wo_u64 = OutReg<u64>;
 
-using io_s32 = s32 volatile;
-using in_s32 = InReg<s32>;
-using wo_s32 = OutReg<s32>;
 
-using io_u32 = u32 volatile;
-using in_u32 = InReg<u32>;
-using wo_u32 = OutReg<u32>;
-
-using io_u16 = u16 volatile;
-using in_u16 = InReg<u16>;
-using wo_u16 = OutReg<u16>;
-
-using io_u8  = u8  volatile;
-using in_u8  = InReg<u8>;
-using wo_u8  = OutReg<u8>;
+template< u32 value >
+struct CmdReg : wo_u32 {
+	let operator () () -> void {  self( value );  }
+};
 
 
-
-//============== Common register groups ======================================//
-//
-template< typename T = u32 >
-struct EvReg {
-	static_assert( is_unsigned_integral<T>{}, "" );
+template< typename T >
+struct EvReg : IoRegBase<T> {
 
 	// contains events: set by hardware, cleared by writing 1
-  union {
-/*00*/	OutReg<T> _clear;
-/*00*/	T const pending;
-  };
-	let clear( T bits ) & -> void {
-		barrier();  // prevent earlier reads moving down
-		_clear( bits );
-		barrier();  // prevent later reads moving up
-	}
 
-	let take( T bits = ~T{0} ) & -> T {
-		bits &= pending;
-		clear( bits );
-		return bits;
-	}
+private:
+	using IoRegBase<T>::read;
+	using IoRegBase<T>::write;
+
+public:
+	// full-register operations
+	let check()         -> T {  return read();  }
+	let clear( T bits ) -> T {  return write( bits );  }
+	let take()          -> T {  return clear( check() );  }
+
+	// masked operations
+	let check( T bits ) -> T {  return check() & bits;  }
+	let take(  T bits ) -> T {  return clear( check( bits ) );  }
 };

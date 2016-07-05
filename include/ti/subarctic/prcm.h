@@ -38,6 +38,7 @@ struct alignas(4) ClockDomain {
 	// these, and they are also true during transitions hence useless for
 	// confirming the readiness of anything.
 	let operator [] ( uint bit ) const -> bool { return w >> bit & 1; }
+	let activity() const -> u32 { return w & ~3; }
 };
 
 
@@ -107,10 +108,13 @@ struct Prcm {
 		let enable()  -> void { mode() = sw_enable; }
 		let disable() -> void { mode() = sw_disable; }
 	};
+	struct IMod : public IModule {
+		let enable()  -> void { mode() = sw_enable; }
+		let disable() -> void { mode() = sw_disable; }
+	};
 
 	using ModAE = Module;
 	using IModAE = IModule;
-	using IMod = Mod;
 
 	// gpio module register
 	struct ModIO : public Mod {
@@ -434,6 +438,8 @@ alignas(0x100)
 	//			1 = core-m4
 
 /*524*/	u32 _524;
+
+	// note: timer0 is clocked by rc osc
 
 /*528*/	u32 clksel_timer1;
 	// bits  0- 2	rw  clock mux:
