@@ -81,7 +81,7 @@ struct Dmad4 {
 
 // dma version with wakeup-enable
 
-template< typename T, typename W >
+template< typename T >
 struct Dmad4w : public Dmad4<T> {
-	W wakeup;	//rw
+	T wakeup;	//rw
 };

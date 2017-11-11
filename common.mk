@@ -1,3 +1,5 @@
+# vim: sw=2
+
 ################ common flags and rules ########################################
 
 .DELETE_ON_ERROR:
@@ -5,38 +7,68 @@
 SHELL := /bin/bash
 
 ifndef CROSS_COMPILE
-ifneq ($(g++ -dumpmachine),"arm-linux-gnueabihf")
-CROSS_COMPILE := arm-linux-gnueabihf-
-endif
+  ifdef target-arch
+    CROSS_COMPILE := ${target-arch}-
+  endif
 endif
 
-CXX = ${CROSS_COMPILE}g++
-CC = ${CROSS_COMPILE}gcc
-LD = ${CXX}
-LDFLAGS =
-LDLIBS =
-flags = -march=armv7-a -mfpu=neon -mfloat-abi=hard -mthumb
-CFLAGS = ${flags}
-CXXFLAGS = ${flags}
-CPPFLAGS = -I . -I include
-flags += -funsigned-char
-flags += -fno-strict-aliasing -fwrapv
-CXXFLAGS += -std=gnu++1y
-CXXFLAGS += -fno-operator-names
-CXXFLAGS += -Wno-invalid-offsetof
-flags += -O2
-ifndef no_debug
-flags += -fno-schedule-insns -fno-schedule-insns2
-flags += -g
+target-flags =
+
+CXX = ${CROSS_COMPILE}g++ ${target-flags}
+CC = ${CROSS_COMPILE}gcc ${target-flags}
+
+target-arch != ${CC} -dumpmachine
+
+ifeq "${target-arch}" "arm-linux-gnueabihf"
+  # targeting a beaglebone
+  target-flags += -mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard -mthumb
+else
+  # otherwise probably compiling for use locally on some x86 machine.
+  # I considered adding -mx32 to target-flags but it's a hassle with libs.
+  ifndef CROSS_COMPILE
+    target-flags += -march=native
+  endif
 endif
+
+LD = ${CC}
+LDFLAGS =
+LDFLAGS += -z now	# resolve dynamic symbols at start instead of lazily
+LDFLAGS += -z relro	# this also allows full RELRO hardening
+LDLIBS =
+
+CPPFLAGS =
+CPPFLAGS += -iquote src
+CPPFLAGS += -iquote include
+CPPFLAGS += -D_FILE_OFFSET_BITS=64	# use true off_t instead of compat
+CPPFLAGS += -D_FORTIFY_SOURCE=2		# harden against buffer overflows
+
+flags =
+flags += -funsigned-char		# is default on arm, set it to be sure
+flags += -fno-strict-aliasing -fwrapv	# say yes to sanity
+flags += -fstack-protector		# hardening
+
 flags += -Wall -Wextra
 flags += -Werror
 flags += -Wno-unused-parameter
 flags += -Wno-error=unused-function
-#flags += -ffunction-sections
-#flags += -fdata-sections
+flags += -Wno-error=unused-variable
 
-flags += -fmax-errors=3
+flags += -g
+
+flags += -Og				# better for debugging
+#flags += -O2 -fno-schedule-insns{,2}	# better for performance
+# note: instruction scheduling makes single-stepping really painful
+
+# doubles are expensive on cortex-a8, so if you need fast math consider:
+#flags += -ffast-math -fsingle-precision-constant -Wdouble-promotion
+
+CFLAGS = -std=gnu11 ${flags}		# C 2011 + GNU extensions
+
+CXXFLAGS = -std=gnu++1z ${flags}	# C++ 2017 + GNU extensions
+CXXFLAGS += -fno-operator-names		# seriously wtf
+CXXFLAGS += -Wno-invalid-offsetof	# ANNOYING
+
+CXX += -fmax-errors=3
 
 export GCC_COLORS = 1
 
@@ -63,7 +95,8 @@ depdir := .dep
 $(shell mkdir -p ${depdir})
 
 # generate them
-CPPFLAGS += -MMD -MQ $@ -MP -MF >( cat >${depdir}/$@.d )
+dep = ${depdir}/$@.d
+CPPFLAGS += -MMD -MQ $@ -MQ ${dep} -MP -MF ${dep}
 
 # use them
 -include ${depdir}/*.d
@@ -72,15 +105,10 @@ CPPFLAGS += -MMD -MQ $@ -MP -MF >( cat >${depdir}/$@.d )
 clean ::
 	${RM} -r ${depdir}
 
-# fix built-in rules that bork because they think all deps are sources
-%: %.o
-	${LINK.o} ${^:%.h=} ${LDLIBS} ${OUTPUT_OPTION}
-
+# kill the implicit rules that compile and link in one command since doing so
+# confuses dependency generation and isn't supported by distcc.
 %: %.c
-	${LINK.c} ${^:%.h=} ${LDLIBS} ${OUTPUT_OPTION}
-
 %: %.cc
-	${LINK.cc} ${^:%.h=} ${LDLIBS} ${OUTPUT_OPTION}
 
 
 ################ to check what the compiler is making of your code #############

@@ -1,11 +1,18 @@
 #pragma once
 #include "defs.h"
 
-// flat-map physical address range
-let map_phys( u32 addr, size_t size ) -> void;
+let close_devmem() -> void;
+
+
+// map physical address range
+let map_phys( u32 pa, size_t size ) -> void *;
 
 template< typename T >
-let static map_phys( T &obj ) -> void
+let static map_phys( u32 pa ) -> T &
 {
-	map_phys( (u32) &obj, sizeof obj );
+ 	return *(T *) map_phys( pa, sizeof(T) );
 }
+
+
+// map physical address range over preallocated virtual memory
+let map_phys( void *va, u32 pa, size_t size ) -> void;

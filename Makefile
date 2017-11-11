@@ -10,7 +10,7 @@ clean ::
 libsubarctic/libsubarctic.a:
 	${MAKE} -C libsubarctic
 
-jbang: jbang.cc hw-subarctic.cc
+jbang: hw-subarctic.o
 
 
 # where to look for sources
@@ -23,6 +23,8 @@ declared_pkgs :=
 # default packages
 pkgs =
 
+
+target-arch := arm-linux-gnueabihf
 
 include common.mk
 

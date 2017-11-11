@@ -3,13 +3,18 @@
 use v5.14;
 use strict;
 use warnings qw( FATAL all );
+use experimental qw( signatures );
 use autodie;
 
-sub mangle ($) {
-	my( $sym ) = @_;
-	my @sym = split /::/, $sym;
-	$_ = length . $_  for @sym;
-	join '', '_Z', (@sym > 1 ? 'N' : ()), @sym, 'E'
+# mangle a global data symbol
+sub mangle ($sym) {
+	$sym =~ /::/  or return $sym;
+
+	my $std = $sym =~ s/^std::// && 'St';
+	my @sym = map length . $_, split /::/, $sym;
+
+	local $" = '';
+	@sym > 1 ? "_ZN${std}@{sym}E" : "_Z${std}${sym}"
 }
 
 open my $mkfh, '>', 'modules.mk';
@@ -18,9 +23,17 @@ while( <> ) {
 	chomp;
 	my( $sym, $addr, $include ) = split /\t/;
 
+	if( $addr !~ /000\z/ ) {
+		# I'm lazy
+		warn "ignoring non-page-aligned $sym for now\n";
+		next;
+	}
+
 	my $mod = $sym;
 	$mod =~ s/::/-/g;
 	$mod =~ s/(?<![^-])hw-(\w+)\z/$1/ or die;
+
+	my $msym = mangle $sym;
 
 	my $init = "init_$mod";
 	$init =~ s/-/_/g;
@@ -29,18 +42,17 @@ while( <> ) {
 	print $fh <<"END";
 #include "$include"
 #include "map-phys.h"
+
 [[ gnu::constructor(102) ]]
 let static $init() -> void {
-	map_phys( ::$sym );
+	let static constexpr size = -(-sizeof $sym & -0x1000u);
+
+	asm( ".comm $msym, %c0, %c1" ::
+		"n"(size),
+		"n"(max( alignof $sym, 0x1000u )) );
+	map_phys( &$sym, 0x$addr, size );
 }
 END
-	close $fh;
-
-	$sym = mangle $sym;
-	$addr =~ y/'//d;
-
-	open $fh, '>', "hw-$mod.ld";
-	print $fh "$sym = 0x$addr;\n";
 	close $fh;
 
 	print $mkfh "modules += hw-$mod.o\n";

@@ -209,7 +209,7 @@ using wo_u64 = OutReg<u64>;
 
 template< u32 value >
 struct CmdReg : wo_u32 {
-	let operator () () -> void {  self( value );  }
+	let operator () () -> void {  write( value );  }
 };
 
 

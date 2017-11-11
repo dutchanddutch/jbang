@@ -11,13 +11,14 @@ modules.mk: peripherals.txt
 	bin/gen-modules $<
 
 peripherals.txt:
-	find ${srcdir}include/ -type f -name '*.h' \
+	find ${srcdir}include/ti/subarctic -type f -name '*.h' \
 		-exec ${topdir}bin/scrape-peripherals {} \+ >$@
 
-all :: modules.mk libsubarctic.a(${modules} map-phys.o)
+all :: modules.mk libsubarctic.a
 
-${modules}: %.o: %.cc %.ld
-	${LINK.cc} -nostdlib -r ${^:%.h=} ${OUTPUT_OPTION}
+libsubarctic.a: ${modules} map-phys.o
+	${RM} $@
+	$(AR) qsU $@ $^
 
 clean ::
 	${RM} hw-* peripherals.txt modules.mk libsubarctic.a
@@ -33,7 +34,7 @@ declared_pkgs :=
 pkgs =
 
 
+target-arch := arm-linux-gnueabihf
 include common.mk
 
 CXXFLAGS += -fno-exceptions -fno-rtti -fno-threadsafe-statics
-LD = ${CC}

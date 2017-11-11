@@ -152,6 +152,7 @@ struct Prcm {
 	// bit   3	l3s_gclk = core_m4 / 2
 
 /*008*/	Clk clk_l4fw;
+	// bit   8	?
 
 /*00c*/	Clk clk_l3;
 	// bit   2	emif_gclk
@@ -161,6 +162,18 @@ struct Prcm {
 	// bit   6	cpts_rft_gclk
 	// bit   7	mcasp_gclk
 
+	// Although MODULEMODE 1 is not used on subarctic, some modules behave
+	// like they should have:  They do not prevent their clock domain from
+	// sleeping, and enter disconnected state when it does.
+	//
+	// Unlike what the TRM seems to imply in the PRCM chapter, gpio modules
+	// are not clocked and cannot generate an irq in disconnected state.
+	//
+	// This is currently marked in the comments:
+	//	-clkdomain	module blocks clock domain sleep
+	//	+clkdomain	module disconnects on domain sleep
+	// If no prefix is present then I haven't tested it.
+
 /*010*/	IMod mod_pcie;		// ?
 /*014*/	IMod mod_eth;		// clk_eth
 /*018*/	IMod mod_lcdc;		// clk_lcdc
@@ -168,9 +181,9 @@ struct Prcm {
 /*020*/	IMod mod_mlb;
 /*024*/	IMod mod_tptc0;		// clk_l3.l3_gclk
 /*028*/	Mod mod_emif;
-/*02c*/	Mod mod_ocmc;
-/*030*/	Mod mod_gpmc;
-/*034*/	Mod mod_asp0;
+/*02c*/	Mod mod_ocmc;		//
+/*030*/	Mod mod_gpmc;		//
+/*034*/	Mod mod_asp0;		// -clk_l3.mcasp_gclk
 /*038*/	Mod mod_uart5;		// clk_l4ls
 /*03c*/	Mod mod_mmc0;
 /*040*/	Mod mod_elm;
@@ -200,9 +213,9 @@ struct Prcm {
 /*0a0*/	Mod mod_hash;
 /*0a4*/	Mod mod_pka;
 /*0a8*/	ModIO mod_io6;		// ?
-/*0ac*/	ModIO mod_io1;
-/*0b0*/	ModIO mod_io2;
-/*0b4*/	ModIO mod_io3;
+/*0ac*/	ModIO mod_io1;		// +clk_l4ls
+/*0b0*/	ModIO mod_io2;		// +clk_l4ls
+/*0b4*/	ModIO mod_io3;		// +clk_l4ls
 /*0b8*/	ModIO mod_io4;		// ?
 /*0bc*/	Mod mod_tpcc;		// clk_l3.l3_gclk
 /*0c0*/	Mod mod_can0;		// clk_l4ls.dcan0_fck
@@ -235,15 +248,16 @@ struct Prcm {
 	// bit   5	cpsw_50MHz_gclk
 	// bit   6	cpsw_5MHz_gclk
 
-/*120*/	Mod mod_l4hs;
-/*124*/	Mod mod_exp_master;
+/*120*/	Mod mod_l4hs;	// +clk_l4hs.l4hs_gclk
+
+/*124*/	IMod mod_exp_master;
 /*128*/	Mod mod_exp_slave;
 
 /*12c*/	Clk clk_ocpwp_l3;
 	// bit   4	ocpwp_l3_gclk
 	// bit   5	ocpwp_l4_gclk
 
-/*130*/	IMod mod_ocpwp;		// clk_l4ls
+/*130*/	IMod mod_ocpwp;		// clk_l4ls? +clk_ocpwp_l3.ocpwp_l3_gclk
 /*134*/	Mod mod_mailbox1;	// ?
 /*138*/	Mod mod_spare0;		// ?
 /*13c*/	Mod mod_spare1;		// ?
@@ -439,7 +453,7 @@ alignas(0x100)
 
 /*524*/	u32 _524;
 
-	// note: timer0 is clocked by rc osc
+	// note: timer0 is clocked by rc osc (16 kHz - 60 kHz)
 
 /*528*/	u32 clksel_timer1;
 	// bits  0- 2	rw  clock mux:
@@ -484,8 +498,7 @@ alignas(0x100)
 	// bit   2	mpu_clk
 
 /*604*/	IMod mod_mpu;
-	// Idle is acknowledged when MPU is suspended in WFI.  This causes PRCM
-	// to assert an irq to the wakeup-M3.
+	// Idle is acknowledged when MPU is suspended in WFI.
 
 
 alignas(0x100)
@@ -558,8 +571,7 @@ alignas(0x100)
 	// bit  14	rc  ddr pll recalibration required
 	// bit  15	rc  disp pll recalibration required
 
-	// m3_irq1 (always enabled) indicates MPU clock is gated, asserted when
-	// mod_mpu.mode() == sw_disable and mpu executes WFI instruction.
+	// m3_irq1 (always enabled) indicates MPU entered WFI.
 
 
 

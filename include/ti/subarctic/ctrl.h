@@ -19,6 +19,13 @@ inline namespace hw {
 struct Pad {
 	u32 value;
 
+	let constexpr operator == ( Pad rhs ) const -> bool {
+		return value == rhs.value;
+	}
+	let constexpr operator != ( Pad rhs ) const -> bool {
+		return value != rhs.value;
+	}
+
 	enum pull_t : uint {
 		pull_down = 0,
 		no_pull   = 1,
@@ -161,8 +168,10 @@ alignas(0x100)
 /*108*/	u32 sec_emu_mpu;	//r-
 
 alignas(0x10)
-/*110*/	u32 emif_config;	//rw
-/*114*/	u32 emif_config2;	//rw
+/*110*/	u32 emif_config;	//rw  initial value of emif.config
+/*114*/	u32 emif_config2;	//rw  initial value of emif.config2
+	// XXX verify when exactly these are used.  certainly when power cycling pd_per,
+	// but is it also used when emif is first enabled after global cold reset? warm?
 
 /*118*/	u32 sw_cfg;
 /*11c*/	u32 sw_ccfg;
@@ -425,11 +434,11 @@ alignas(0x100)
 		bool chgdet_rst	:  1;
 		bool src_on_dm	:  1;  // instead of d+
 		bool sink_on_dp	:  1;  // instead of d-
-		bool isink_en	:  1;
-		bool vsrc_en	:  1;
+		bool isink_en	:  1;  // sink 100 μA from d-  (or d+)
+		bool vsrc_en	:  1;  // drive 600 mV onto d+  (or d-)
 	/*1*/	bool dm_pd	:  1;
 		bool dp_pu	:  1;
-		bool chgdet_ext	:  1;
+		bool chgdet_ext	:  1;  // internal charge detect bypassed
 		bool _ctl_11	:  1;
 
 		// The GPIO mode pins of the usb phy are actually connected to
@@ -455,6 +464,24 @@ alignas(0x100)
 	struct alignas(8) UsbPhy {
 	/*0*/	UsbConfig config;
 	/*4*/	u8 chgdet_status;
+		// bit   0	r-  charger detection protocol done
+		// bit   1	r-  charger was detected
+		//
+		// charger detect comparator output:
+		// bit   2	r-  d- is above Data Detect Voltage 0.25V ~ 0.4V
+		// comparator outputs during resistor host detect protocol:
+		// bit   3	r-  d+ is above 0.75V ~ 0.95V
+		// bit   4	r-  d- is above 0.75V ~ 0.95V
+		//
+		// bits  5- 7	r-  charger detect state:
+		//			0  wait state
+		//			1  no contact
+		//			2  ps/2
+		//			3  unknown error
+		//			4  dedicated charging port
+		//			5  charging downstream port
+		//			6  standard downstream port
+		//			7  interrupt
 
 	/*5*/	bool wakeup_ev	:  1;  // aegis
 	};
@@ -764,3 +791,8 @@ struct CtrlMisc {
 /*28*/	u32 ipc_msg[8];
   };
 };
+
+
+// moved to ti/subarctic/emif.h:
+// (offset 0x1400) ddr padconf
+// (offset 0x2000) ddr phy

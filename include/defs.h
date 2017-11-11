@@ -106,6 +106,12 @@ using s16 = int16_t;
 using s8  = int8_t;
 
 
+//============== C strings ===================================================//
+
+using cstr_t = char *;
+using ccstr_t = char const *;
+
+
 //============== min/max that actually do what you want ======================//
 
 template< typename L, typename R >

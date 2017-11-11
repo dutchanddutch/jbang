@@ -3,6 +3,9 @@
 #include "util/device.h"
 #include "ti/irqd.h"
 
+// OMAP4 GPIO controller
+// (based on OMAP2 GPIO controller with a wrapper)
+
 struct alignas(0x400) Io {
 
 	//-------- Highlander-compliant wrapper ------------------------------//
