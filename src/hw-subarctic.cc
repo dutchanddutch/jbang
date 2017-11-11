@@ -36,10 +36,10 @@ let tdi(  bool level ) -> void {  sim_input( 117, level );  }
 
 // JTAG output (TDO) monitored via gpio
 let tdo() -> bool {
-	return has_tdo ? dev_recv( io3.in ) >> 7 & 1 : 0;
+	return has_tdo && (3.07_io).in();
 }
 
-// I connected TDO to the nearby EMU0 pin, reconfigure it to gpio 3.7
+// I connected TDO to the nearby EMU0 pin, reconfigure it to gpio 3.07
 let static tdo_init()
 {
 	padconf( 121, Pad::in( 7, Pad::pull_up ) );
