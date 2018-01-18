@@ -7,42 +7,42 @@
 #include <fcntl.h>
 #include <unistd.h>
 
-let static devmem_fd = -1;
-
-let close_devmem() -> void
+let static map_phys( void *va, uintptr_t pa, size_t size, bool readonly, int flags )
 {
-	if( devmem_fd >= 0 )
-		close( devmem_fd );
-	devmem_fd = -1;
-}
-
-let static devmem() -> int
-{
-	if( devmem_fd < 0 )
-		devmem_fd = open( "/dev/mem", O_RDWR | O_DSYNC | O_CLOEXEC );
-	if( devmem_fd < 0 )
-		die( "open /dev/mem: %m\n" );
-	return devmem_fd;
-}
-
-// map physical address range
-let map_phys( uintptr_t pa, size_t size ) -> void *
-{
-	size += -size & 0xfff;
-	let va = mmap( (void *)pa, size, PROT_READ | PROT_WRITE,
-				MAP_SHARED, devmem(), pa );
-	if( va == MAP_FAILED )
-		die( "map_phys(0x%x, 0x%x): mmap: %m\n", pa, size );
+	let fd = open( "/dev/mem", (readonly ? O_RDONLY : O_RDWR) | O_DSYNC | O_CLOEXEC );
+	if( fd < 0 )
+		return MAP_FAILED;
+	let prot = readonly ? PROT_READ : (PROT_READ | PROT_WRITE);
+	va = mmap( va, size, prot, flags, fd, pa );
+	close( fd );
 	return va;
 }
 
-// map physical address range over preallocated virtual memory
-let map_phys( void *va, uintptr_t pa, size_t size ) -> void
+
+// map physical address range.
+// there are no alignment restrictions on pa and size.
+let map_phys( uintptr_t pa, size_t size, bool readonly ) -> void *
+{
+	let offset = pa & 0xfff;
+	pa -= offset;
+	size += offset;
+	size += -size & 0xfff;
+	let va = map_phys( (void *)pa, pa, size, readonly, MAP_SHARED );
+	if( va == MAP_FAILED )
+		die( "map_phys(0x%x, 0x%x): mmap: %m\n", pa, size );
+	return (char *)va + offset;
+}
+
+// map physical address range over preallocated virtual memory.
+// va, pa, and size must all be page-aligned.
+let map_phys( void *va, uintptr_t pa, size_t size, bool readonly ) -> void
 {
 	if( size & 0xfff )
 		die( "map_phys(%p, 0x%x, 0x%x): Invalid size\n", va, pa, size );
-	if( mmap( va, size, PROT_READ | PROT_WRITE,
-				MAP_SHARED | MAP_FIXED, devmem(), pa )
-			== MAP_FAILED )
+	if( pa & 0xfff )
+		die( "map_phys(%p, 0x%x, 0x%x): Invalid physical address\n", va, pa, size );
+	if( (uintptr_t)va & 0xfff )
+		die( "map_phys(%p, 0x%x, 0x%x): Invalid virtual address\n", va, pa, size );
+	if( map_phys( va, pa, size, readonly, MAP_SHARED | MAP_FIXED ) == MAP_FAILED )
 		die( "map_phys(%p, 0x%x, 0x%x): mmap: %m\n", va, pa, size );
 }
